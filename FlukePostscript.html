@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Fluke ScopeMeter PostScript Image Viewer</title>
+  <style>
+    body {
+      font-family: sans-serif;
+      margin: 20px;
+    }
+    /* Container for the control elements */
+    #controls {
+      margin-bottom: 10px;
+    }
+    #controls label, #controls input {
+      font-size: 1em;
+      margin-right: 10px;
+    }
+    #controls button {
+      margin-left: 10px;
+      padding: 5px 10px;
+      font-size: 1em;
+    }
+    /* Button styling */
+    #startOverButton { background-color: red; color: white; border: none; }
+    #exportButton { background-color: blue; color: white; border: none; }
+    #disconnectButton { background-color: orange; color: white; border: none; }
+    #canvasContainer {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+      margin-top: 20px;
+    }
+    .canvas-wrapper {
+      border: 1px solid #ccc;
+      padding: 10px;
+    }
+    .canvas-wrapper canvas {
+      border: 1px solid #000;
+      display: block;
+    }
+    #log, #progress, #deviceInfo {
+      white-space: pre-wrap;
+      background-color: #f9f9f9;
+      border: 1px solid #ccc;
+      padding: 10px;
+      margin-top: 20px;
+    }
+    #log { height: 100px; overflow-y: auto; }
+  </style>
+</head>
+<body>
+  <h1>Fluke ScopeMeter PostScript Image Viewer</h1>
+  
+  <div id="controls">
+    <label for="baudrate">Select Meter Print Baud Rate:</label>
+    <select id="baudrate">
+      <option value="1200">1200</option>
+      <option value="2400">2400</option>
+      <option value="9600">9600</option>
+      <option value="19200" selected>19200</option>
+    </select>
+    <label for="queryMeter">Query Meter Data?</label>
+    <input type="checkbox" id="queryMeter" checked>
+    <button id="connectButton">Connect</button>
+    <button id="disconnectButton">Disconnect</button>
+    <button id="exportButton">Export</button>
+    <button id="startOverButton">START OVER</button>
+  </div>
+  
+  <!-- Progress display -->
+  <div id="progress"></div>
+  
+  <!-- Container for both canvases -->
+  <div id="canvasContainer">
+    <div class="canvas-wrapper">
+      <h2>Original Image</h2>
+      <canvas id="canvasOriginal"></canvas>
+    </div>
+    <div class="canvas-wrapper">
+      <h2>Inverted Image</h2>
+      <canvas id="canvasInverted"></canvas>
+    </div>
+  </div>
+  
+  <!-- Device info area -->
+  <div id="deviceInfo">Device: n/a, Firmware: n/a</div>
+  
+  <!-- Log area for status messages -->
+  <div id="log"></div>
+  
+  <script>
+    // A helper function for delays.
+    function delay(ms) {
+      return new Promise(resolve => setTimeout(resolve, ms));
+    }
+    
+    // Global variables.
+    let currentPort = null;
+    let portIsOpen = false;      // Tracks whether the port is open.
+    let mainBaudRate = 0;        // Baud selected for receiving image data.
+    let psBuffer = "";
+    let headerParsed = false;
+    let headerEndIndex = 0;
+    let expectedHexLength = 0;
+    let imageWidth = 0;
+    let imageHeight = 0;
+    let headerStartTime = 0;
+    let psReader = null;         // For the continuous reading loop.
+    let deviceQueried = false;   // Indicates if the device query has been performed.
+    let queriedDevice = "n/a";
+    let queriedFirmware = "n/a";
+    
+    // UI element references.
+    const connectButton = document.getElementById('connectButton');
+    const disconnectButton = document.getElementById('disconnectButton');
+    const exportButton = document.getElementById('exportButton');
+    const startOverButton = document.getElementById('startOverButton');
+    const queryMeterCheckbox = document.getElementById('queryMeter');
+    const baudrateSelect = document.getElementById('baudrate');
+    const progressDiv = document.getElementById('progress');
+    const logDiv = document.getElementById('log');
+    const deviceInfoDiv = document.getElementById('deviceInfo');
+    const canvasOriginal = document.getElementById('canvasOriginal');
+    const canvasInverted = document.getElementById('canvasInverted');
+    const ctxOriginal = canvasOriginal.getContext('2d');
+    const ctxInverted = canvasInverted.getContext('2d');
+    
+    // Helper function to log messages.
+    function log(message) {
+      console.log(message);
+      logDiv.textContent += message + "\n";
+      logDiv.scrollTop = logDiv.scrollHeight;
+    }
+    
+    // Update the Connect button UI based on connection status.
+    function updateConnectButton(isConnected) {
+      if (isConnected) {
+        connectButton.textContent = "Connected";
+        connectButton.style.backgroundColor = "green";
+      } else {
+        connectButton.textContent = "Connect";
+        connectButton.style.backgroundColor = "";
+      }
+    }
+    
+    // Listen for disconnect events (if the user unplugs the cable).
+    navigator.serial.addEventListener('disconnect', event => {
+      if (currentPort && event.port === currentPort) {
+        log("Device disconnected.");
+        portIsOpen = false;
+        updateConnectButton(false);
+      }
+    });
+    
+    // Process a complete PostScript block.
+    function processPSBlock(block) {
+      log("Processing PostScript block...");
+      
+      const imageRegex = /(\d+)\s+(\d+)\s+1\s+\[[^\]]+\]\s+\{[^}]+\}\s+image/;
+      const match = block.match(imageRegex);
+      if (!match) {
+        log("No image operator found in the block.");
+        return;
+      }
+      
+      const width = parseInt(match[1], 10);
+      const height = parseInt(match[2], 10);
+      log("Image dimensions: " + width + " x " + height);
+      
+      canvasOriginal.width = width;
+      canvasOriginal.height = height;
+      canvasInverted.width = width;
+      canvasInverted.height = height;
+      
+      const imageIndex = block.indexOf("image");
+      let hexData = "";
+      if (imageIndex !== -1) {
+        let lineEnd = block.indexOf("\n", imageIndex);
+        if (lineEnd !== -1) {
+          hexData = block.substring(lineEnd).trim();
+        } else {
+          hexData = block.substring(imageIndex + "image".length).trim();
+        }
+      }
+      const showpageIndex = hexData.indexOf("showpage");
+      if (showpageIndex !== -1) {
+        hexData = hexData.substring(0, showpageIndex);
+      }
+      hexData = hexData.replace(/\s+/g, "");
+      log("Hex data length (in characters): " + hexData.length);
+      
+      const expectedBytes = (width / 8) * height;
+      if (hexData.length < expectedBytes * 2) {
+        log("Warning: Not enough hex data (" + (hexData.length / 2) +
+            " bytes received, expected " + expectedBytes + " bytes).");
+        return;
+      }
+      
+      const imgBytes = new Uint8Array(expectedBytes);
+      for (let i = 0; i < expectedBytes; i++) {
+        const byteHex = hexData.substr(i * 2, 2);
+        imgBytes[i] = parseInt(byteHex, 16);
+      }
+      
+      const imageDataArray = new Uint8ClampedArray(width * height * 4);
+      let byteIndex = 0;
+      for (let y = 0; y < height; y++) {
+        for (let xByte = 0; xByte < width / 8; xByte++) {
+          const byte = imgBytes[byteIndex++];
+          for (let bit = 7; bit >= 0; bit--) {
+            const pixelValue = (byte >> bit) & 1;
+            const x = xByte * 8 + (7 - bit);
+            const pixelIndex = (y * width + x) * 4;
+            if (pixelValue === 1) {
+              imageDataArray[pixelIndex]     = 0;
+              imageDataArray[pixelIndex + 1] = 0;
+              imageDataArray[pixelIndex + 2] = 0;
+              imageDataArray[pixelIndex + 3] = 255;
+            } else {
+              imageDataArray[pixelIndex]     = 255;
+              imageDataArray[pixelIndex + 1] = 255;
+              imageDataArray[pixelIndex + 2] = 255;
+              imageDataArray[pixelIndex + 3] = 255;
+            }
+          }
+        }
+      }
+      
+      const originalImgData = new ImageData(imageDataArray, width, height);
+      ctxOriginal.putImageData(originalImgData, 0, 0);
+      log("Original image rendered.");
+      
+      let invertedDataArray = new Uint8ClampedArray(imageDataArray);
+      for (let i = 0; i < invertedDataArray.length; i += 4) {
+        invertedDataArray[i]     = 255 - invertedDataArray[i];
+        invertedDataArray[i + 1] = 255 - invertedDataArray[i + 1];
+        invertedDataArray[i + 2] = 255 - invertedDataArray[i + 2];
+      }
+      const invertedImgData = new ImageData(invertedDataArray, width, height);
+      ctxInverted.putImageData(invertedImgData, 0, 0);
+      log("Inverted image rendered.");
+    }
+    
+    // Starts the continuous reading loop for PostScript data.
+    async function startReadingLoop() {
+      const textDecoder = new TextDecoderStream();
+      currentPort.readable.pipeTo(textDecoder.writable);
+      psReader = textDecoder.readable.getReader();
+      try {
+        while (true) {
+          const { value, done } = await psReader.read();
+          if (done) {
+            psReader.releaseLock();
+            break;
+          }
+          if (value) {
+            psBuffer += value;
+            if (!headerParsed) {
+              const imageRegex = /(\d+)\s+(\d+)\s+1\s+\[[^\]]+\]\s+\{[^}]+\}\s+image/;
+              const match = psBuffer.match(imageRegex);
+              if (match) {
+                imageWidth = parseInt(match[1], 10);
+                imageHeight = parseInt(match[2], 10);
+                const imageIndex = psBuffer.indexOf("image");
+                let lineEnd = psBuffer.indexOf("\n", imageIndex);
+                if (lineEnd === -1) {
+                  lineEnd = imageIndex + "image".length;
+                }
+                headerEndIndex = lineEnd + 1;
+                expectedHexLength = ((imageWidth / 8) * imageHeight) * 2;
+                headerParsed = true;
+                headerStartTime = Date.now();
+                progressDiv.textContent = "0% received";
+              }
+            }
+            if (headerParsed) {
+              let currentHexData = "";
+              let showpageIndex = psBuffer.indexOf("showpage", headerEndIndex);
+              if (showpageIndex === -1) {
+                currentHexData = psBuffer.substring(headerEndIndex);
+              } else {
+                currentHexData = psBuffer.substring(headerEndIndex, showpageIndex);
+              }
+              currentHexData = currentHexData.replace(/\s+/g, "");
+              const currentLength = currentHexData.length;
+              const percent = Math.min(100, Math.floor((currentLength / expectedHexLength) * 100));
+              let etaString = "";
+              if (currentLength > 0 && percent < 100) {
+                const elapsedTime = (Date.now() - headerStartTime) / 1000;
+                const fraction = currentLength / expectedHexLength;
+                const totalEstimatedTime = elapsedTime / fraction;
+                const remainingTime = totalEstimatedTime - elapsedTime;
+                etaString = ` (ETA: ${remainingTime.toFixed(1)} sec)`;
+              }
+              progressDiv.textContent = `${percent}% received${etaString}`;
+            }
+            let endIndex;
+            while ((endIndex = psBuffer.indexOf("showpage")) !== -1) {
+              const block = psBuffer.substring(0, endIndex + "showpage".length);
+              psBuffer = psBuffer.substring(endIndex + "showpage".length);
+              processPSBlock(block);
+              headerParsed = false;
+              imageWidth = 0;
+              imageHeight = 0;
+              headerEndIndex = 0;
+              expectedHexLength = 0;
+              headerStartTime = 0;
+              progressDiv.textContent = "";
+            }
+          }
+        }
+      } catch (error) {
+        log("Reading loop error: " + error);
+        updateConnectButton(false);
+      }
+    }
+    
+    // Runs the device query ("ID" command) at 1200 baud with up to 2 tries.
+    async function runDeviceQuery() {
+      if (psReader) {
+        try {
+          await psReader.cancel();
+        } catch (err) {
+          // If cancel fails due to locked stream, release the lock
+          try { psReader.releaseLock(); } catch(e) {}
+        }
+        psReader = null;
+      }
+      if (portIsOpen) {
+        try {
+          await currentPort.close();
+          portIsOpen = false;
+        } catch (e) {
+          log("Error closing port before device query: " + e);
+        }
+      }
+      
+      const queryBaud = 1200;
+      let meterResponse = "";
+      let successful = false;
+      
+      for (let tryCount = 1; tryCount <= 2; tryCount++) {
+        log(`Trying to get ID on baud ${queryBaud} try ${tryCount}`);
+        if (portIsOpen) {
+          try {
+            await currentPort.close();
+            portIsOpen = false;
+          } catch (e) { }
+        }
+        await delay(100);
+        try {
+          await currentPort.open({ baudRate: queryBaud });
+          portIsOpen = true;
+        } catch (err) {
+          log(`Error opening port at ${queryBaud} baud: ${err}`);
+          continue;
+        }
+        try {
+          const writer = currentPort.writable.getWriter();
+          await writer.write(new TextEncoder().encode("ID\r\nID\r\n"));
+          writer.releaseLock();
+        } catch (err) {
+          log(`Error writing ID command at ${queryBaud} baud: ${err}`);
+          try { 
+            await currentPort.close();
+            portIsOpen = false;
+          } catch (e) {}
+          continue;
+        }
+        let response = "";
+        try {
+          const reader = currentPort.readable.getReader();
+          const decoder = new TextDecoder();
+          const startTime = Date.now();
+          while (Date.now() - startTime < 500) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            response += decoder.decode(value, { stream: true });
+            if (response.indexOf("\n") !== -1) break;
+          }
+          await reader.cancel();
+          reader.releaseLock();
+        } catch (err) {
+          log(`Error reading meter response at ${queryBaud} baud: ${err}`);
+          try { 
+            await currentPort.close();
+            portIsOpen = false;
+          } catch (e) {}
+          continue;
+        }
+        try {
+          await currentPort.close();
+          portIsOpen = false;
+        } catch (err) { }
+        if (response.trim() !== "") {
+          meterResponse = response.trim();
+          successful = true;
+          break;
+        }
+        await delay(100);
+      }
+      
+      if (meterResponse.startsWith("0")) {
+        meterResponse = meterResponse.substring(1).trim();
+      }
+      
+      let device = "n/a", firmware = "n/a";
+      if (successful) {
+        if (meterResponse.includes("FLUKE")) {
+          let parts = meterResponse.split(";");
+          device = parts[0].trim();
+          firmware = parts[1] ? parts[1].trim() : "n/a";
+          log(`Meter Data: Device: ${device}, SW Version: ${firmware} (queried at ${queryBaud} baud)`);
+        } else {
+          log("Non Fluke device connected");
+        }
+      } else {
+        log("No response from device at 1200 baud. Assuming non Fluke device connected.");
+      }
+      
+      queriedDevice = device;
+      queriedFirmware = firmware;
+      deviceInfoDiv.textContent = `Device: ${device}, Firmware: ${firmware}`;
+      
+      try {
+        if (portIsOpen) {
+          await currentPort.close();
+          portIsOpen = false;
+        }
+        log("Device query complete. Connection closed. Please reconnect (using the Connect button) to receive image data.");
+      } catch (err) {
+        log("Error closing port after device query: " + err);
+      }
+      
+      deviceQueried = true;
+    }
+    
+    // Exports both images as PNG files.
+    function exportImages() {
+      const deviceName = (queriedDevice !== "n/a" && queriedDevice.trim() !== "") ? queriedDevice.trim() : "Meter";
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, "0");
+      const day = String(now.getDate()).padStart(2, "0");
+      const hour = String(now.getHours()).padStart(2, "0");
+      const minute = String(now.getMinutes()).padStart(2, "0");
+      const second = String(now.getSeconds()).padStart(2, "0");
+      const timestamp = `${year}-${month}-${day}_${hour}-${minute}-${second}`;
+      
+      const normalDataURL = canvasOriginal.toDataURL("image/png");
+      const normalFilename = `${deviceName}_${timestamp}_N.png`;
+      const linkNormal = document.createElement("a");
+      linkNormal.href = normalDataURL;
+      linkNormal.download = normalFilename;
+      document.body.appendChild(linkNormal);
+      linkNormal.click();
+      document.body.removeChild(linkNormal);
+      
+      const invertedDataURL = canvasInverted.toDataURL("image/png");
+      const invertedFilename = `${deviceName}_${timestamp}_I.png`;
+      const linkInverted = document.createElement("a");
+      linkInverted.href = invertedDataURL;
+      linkInverted.download = invertedFilename;
+      document.body.appendChild(linkInverted);
+      linkInverted.click();
+      document.body.removeChild(linkInverted);
+      
+      log(`Exported images as "${normalFilename}" and "${invertedFilename}".`);
+    }
+    
+    // Disconnects from the serial port.
+    async function disconnectSerial() {
+      try {
+        if (psReader) {
+          try {
+            await psReader.cancel();
+          } catch (e) {
+            try {
+              psReader.releaseLock();
+            } catch (e2) { }
+          }
+          psReader = null;
+        }
+        if (portIsOpen) {
+          await currentPort.close();
+          portIsOpen = false;
+          log("Disconnected.");
+        } else {
+          log("No active connection to disconnect.");
+        }
+      } catch (error) {
+        log("Error disconnecting: " + error);
+      } finally {
+        updateConnectButton(false);
+      }
+    }
+    
+    // Connects to the serial port.
+    async function connectSerial() {
+      if (!("serial" in navigator)) {
+        alert("Web Serial API not supported. Please use a compatible browser (e.g. Chrome or Edge).");
+        return;
+      }
+      try {
+        // If the "Query Meter Data?" checkbox is checked and the device hasn't been queried yet,
+        // perform the device query at 1200 baud.
+        if (!deviceQueried && queryMeterCheckbox.checked) {
+          const port = await navigator.serial.requestPort();
+          currentPort = port;
+          mainBaudRate = parseInt(baudrateSelect.value, 10);
+          await currentPort.open({ baudRate: 1200 });
+          portIsOpen = true;
+          await runDeviceQuery();
+          log("Please reconnect (using the Connect button) to receive image data.");
+          updateConnectButton(false);
+        } else {
+          const port = await navigator.serial.requestPort();
+          currentPort = port;
+          mainBaudRate = parseInt(baudrateSelect.value, 10);
+          await currentPort.open({ baudRate: mainBaudRate });
+          portIsOpen = true;
+          log("Connected. Ready to receive image data.");
+          updateConnectButton(true);
+          startReadingLoop();
+        }
+      } catch (error) {
+        log("Error: " + error);
+      }
+    }
+    
+    // Event handlers.
+    connectButton.addEventListener('click', connectSerial);
+    disconnectButton.addEventListener('click', disconnectSerial);
+    exportButton.addEventListener('click', exportImages);
+    startOverButton.addEventListener('click', () => {
+      psBuffer = "";
+      headerParsed = false;
+      headerStartTime = 0;
+      imageWidth = 0;
+      imageHeight = 0;
+      headerEndIndex = 0;
+      expectedHexLength = 0;
+      progressDiv.textContent = "";
+      
+      ctxOriginal.clearRect(0, 0, canvasOriginal.width, canvasOriginal.height);
+      ctxInverted.clearRect(0, 0, canvasInverted.width, canvasInverted.height);
+      canvasOriginal.width = 0;
+      canvasOriginal.height = 0;
+      canvasInverted.width = 0;
+      canvasInverted.height = 0;
+      
+      log("Screen cleared, waiting for new data.");
+    });
+  </script>
+</body>
+</html>
