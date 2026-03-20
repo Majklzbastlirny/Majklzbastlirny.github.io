@@ -115,6 +115,32 @@
     }
 
     /* extra variables for components (dark base) */
+    /* Info box */
+    details.info-box {
+      background: var(--card); border: 1px solid #16233d; border-radius: 12px;
+      padding: 10px 16px; margin-top: 18px;
+    }
+    details.info-box summary {
+      cursor: pointer; font-size: 13px; color: var(--muted); user-select: none;
+      list-style: none; padding: 4px 0;
+    }
+    details.info-box summary::-webkit-details-marker { display: none; }
+    details.info-box[open] { padding-bottom: 14px; }
+    details.info-box[open] summary { margin-bottom: 10px; color: var(--fg); }
+    .info-table {
+      border-collapse: collapse; font-size: 13px; margin-top: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    .info-table th, .info-table td { padding: 4px 10px; text-align: right; border-bottom: 1px solid var(--line); }
+    .info-table th { color: var(--muted); font-weight: 600; }
+    .info-table td:first-child { text-align: left; }
+    .info-table tr.total td { color: var(--accent); font-weight: 600; }
+    /* 12-digit grid */
+    .grid12 { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; row-gap: 8px; }
+    .dg { display: grid; gap: 4px; }
+    .dg-cells { display: flex; gap: 6px; }
+    .dg .group-title { font-size: 11px; }
+
     :root {
       --field-bg: #0f1a30;
       --field-border: #1f2e52;
@@ -132,6 +158,28 @@
       <h1>Výpočet kontrolní UIC číslice</h1>
       <p>Zadejte základní kód (6 číslic) a volitelně kontrolní číslici. Neznámé pozice nechte prázdné, napište <b>x</b>, nebo i obyčejnou <b>mezeru</b>. Automatické posouvání mezi políčky je zapnuté.</p>
     </header>
+
+    <details class="info-box">
+      <summary>▶ Jak se počítá kontrolní číslice?</summary>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 8px">
+        Číslice na <b>lichých</b> místech (1., 3., 5.) se násobí <b>1</b>, na <b>sudých</b> (2., 4., 6.) se násobí <b>2</b>.
+        Je-li součin dvojciferný, sečtou se jeho číslice. Výsledné součty se sečtou a odečtou od nejbližší vyšší desítky.
+      </p>
+      <table class="info-table">
+        <thead><tr><th>Pozice</th><th>Číslice</th><th>Koef.</th><th>Součin</th><th>Ciferný součet</th></tr></thead>
+        <tbody>
+          <tr><td>1 (lichá)</td><td>1</td><td>×1</td><td>1</td><td>1</td></tr>
+          <tr><td>2 (sudá)</td><td>5</td><td>×2</td><td>10</td><td>1</td></tr>
+          <tr><td>3 (lichá)</td><td>1</td><td>×1</td><td>1</td><td>1</td></tr>
+          <tr><td>4 (sudá)</td><td>0</td><td>×2</td><td>0</td><td>0</td></tr>
+          <tr><td>5 (lichá)</td><td>0</td><td>×1</td><td>0</td><td>0</td></tr>
+          <tr><td>6 (sudá)</td><td>1</td><td>×2</td><td>2</td><td>2</td></tr>
+          <tr class="total"><td colspan="4" style="text-align:right">Součet →</td><td>5</td></tr>
+          <tr class="total"><td colspan="4" style="text-align:right">Nejbližší vyšší desítka (10) − 5 =</td><td>5 ✓</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin:8px 0 0">Příklad: <code>151 001</code> → kontrolní číslice <b>5</b> → celé označení <code>151 001-5</code></p>
+    </details>
 
     <section class="card" id="pad">
       <div class="group-title">Základní kód (3+3 číslice)</div>
@@ -189,10 +237,113 @@
       <p><b>Příklad 1:</b> <code>6 4 x 1 0 3 - x</code> ⇒ dopočítá se celá řada <i>640&nbsp;103</i> až <i>649&nbsp;103</i> s příslušnou kontrolní číslicí.</p>
       <p><b>Příklad 2:</b> <code>6 x 0 1 0 3 - 8</code> ⇒ nalezne hodnotu <i>x</i> tak, aby kontrolní číslice byla 8 (výsledek: <i>x = 4</i>).</p>
     </section>
+
+    <hr style="border:none;border-top:1px solid #1e2e50;margin:36px 0">
+
+    <header style="margin-bottom:0">
+      <h1 style="font-size:clamp(18px,2.5vw,26px)">12místný kód UIC/TSI</h1>
+      <p>Formát: <code>XX&nbsp;XX&nbsp;X&nbsp;XXX&nbsp;XXX-K</code> &nbsp;·&nbsp; Příklad: <code>CZ ČD 94 54 1 471 032-3</code></p>
+    </header>
+
+    <details class="info-box">
+      <summary>▶ Typy vozidel ČR (kód státu 54) a doplňkové číslice</summary>
+      <table class="info-table" style="margin-top:6px">
+        <thead><tr><th style="text-align:left">Prvních 5 číslic</th><th style="text-align:left">Typ vozidla</th></tr></thead>
+        <tbody>
+          <tr><td><code>90 54 3</code></td><td>jiné hnací vozidlo (historické)</td></tr>
+          <tr><td><code>91 54 7</code></td><td>elektrická lokomotiva</td></tr>
+          <tr><td><code>92 54 2</code></td><td>dieselová lokomotiva</td></tr>
+          <tr><td><code>93 54 6</code></td><td>vysokorychlostní elektrická jednotka</td></tr>
+          <tr><td><code>94 54 1</code></td><td>elektrická jednotka</td></tr>
+          <tr><td><code>95 54 5</code></td><td>dieselová jednotka</td></tr>
+          <tr><td><code>96 54 0</code></td><td>specializovaný přívěsný vůz</td></tr>
+          <tr><td><code>98 54 4</code></td><td>posunovací dieselová lokomotiva</td></tr>
+          <tr><td><code>99 54 8</code></td><td>údržbové vozidlo</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
+        5. číslice (doplňková) je pro každý typ pevná — matematicky zaručuje, že kontrolní číslice 12místného i 7místného označení jsou shodné.
+        Algoritmus 12místného kódu používá <b>opačné</b> pořadí koeficientů než 7místný: lichá místa ×2, sudá ×1.
+      </p>
+    </details>
+
+    <section class="card" id="pad12" style="margin-top:18px">
+      <div class="group-title">Kód (11 číslic + kontrolní)</div>
+      <div class="grid12" id="grid12">
+        <div class="dg">
+          <div class="group-title">Typ</div>
+          <div class="dg-cells">
+            <div class="cell"><label>1</label><input inputmode="numeric" maxlength="1" class="digit" id="e0" autocomplete="off"></div>
+            <div class="cell"><label>2</label><input inputmode="numeric" maxlength="1" class="digit" id="e1" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="dg">
+          <div class="group-title">Stát</div>
+          <div class="dg-cells">
+            <div class="cell"><label>3</label><input inputmode="numeric" maxlength="1" class="digit" id="e2" autocomplete="off"></div>
+            <div class="cell"><label>4</label><input inputmode="numeric" maxlength="1" class="digit" id="e3" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="dg">
+          <div class="group-title">Dopl.</div>
+          <div class="dg-cells">
+            <div class="cell"><label>5</label><input inputmode="numeric" maxlength="1" class="digit" id="e4" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="dg">
+          <div class="group-title">Označení</div>
+          <div class="dg-cells">
+            <div class="cell"><label>6</label><input inputmode="numeric" maxlength="1" class="digit" id="e5" autocomplete="off"></div>
+            <div class="cell"><label>7</label><input inputmode="numeric" maxlength="1" class="digit" id="e6" autocomplete="off"></div>
+            <div class="cell"><label>8</label><input inputmode="numeric" maxlength="1" class="digit" id="e7" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="dg">
+          <div class="group-title">&nbsp;</div>
+          <div class="dg-cells">
+            <div class="cell"><label>9</label><input inputmode="numeric" maxlength="1" class="digit" id="e8" autocomplete="off"></div>
+            <div class="cell"><label>10</label><input inputmode="numeric" maxlength="1" class="digit" id="e9" autocomplete="off"></div>
+            <div class="cell"><label>11</label><input inputmode="numeric" maxlength="1" class="digit" id="e10" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="sepcol" aria-hidden="true"><div class="dash">–</div></div>
+        <div class="cell"><label>Kontr.</label><input inputmode="numeric" maxlength="1" class="digit" id="e11" autocomplete="off"></div>
+      </div>
+      <div class="btns">
+        <button id="btnCalc12">Spočítat</button>
+        <button id="btnClear12" class="ghost">Vymazat</button>
+        <button id="btnEx12a" class="ghost" title="94 54 1 471 032-3">Příklad 1 (el. jednotka)</button>
+        <button id="btnEx12b" class="ghost" title="91 54 7 151 001-5">Příklad 2 (el. lok.)</button>
+        <span class="chips" id="stats12"></span>
+      </div>
+      <div class="hint">Tipy: pište číslice nebo <b>x</b> pro neznámé (i doplňkovou 5. číslici). Vložit lze i celý řetězec jako <code>9454x471032</code> nebo <code>94541471032-3</code>.</div>
+    </section>
+
+    <section class="card results" id="results12" hidden>
+      <div class="flex">
+        <div>
+          <h3>Výsledky (12místný UIC)</h3>
+          <span class="count" id="count12"></span>
+        </div>
+        <div class="row-actions">
+          <button id="btnCsv12" class="ghost" disabled>Stáhnout CSV</button>
+          <button id="btnTxt12" class="ghost" disabled>Stáhnout TXT</button>
+        </div>
+      </div>
+      <div id="messages12"></div>
+      <div class="sep"></div>
+      <table class="table" id="table12">
+        <thead>
+          <tr><th>#</th><th>UIC 12místný</th><th>Akce</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
   </div>
 
   <script>
-    const inputs = [...document.querySelectorAll('input.digit')];
+    const inputs = [...document.querySelectorAll('#grid input.digit')];
     const btnCalc = document.getElementById('btnCalc');
     const btnClear = document.getElementById('btnClear');
     const btnExample1 = document.getElementById('btnExample1');
@@ -446,6 +597,7 @@
 
     // Auto advance + backspace navigation + paste parsing + mezera = neznámé + live calc
     inputs.forEach((input, idx) => {
+      input.addEventListener('focus', (e) => { e.target.select(); });
       input.addEventListener('input', (e) => {
         const v = e.target.value;
         if (v && v.length > 1) {
@@ -530,6 +682,205 @@
     });
     const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
     applyTheme(savedTheme);
+
+    // ===== 12-digit UIC/TSI =====
+    const inputs12      = [...document.querySelectorAll('#grid12 input.digit')];
+    const btnCalc12     = document.getElementById('btnCalc12');
+    const btnClear12    = document.getElementById('btnClear12');
+    const btnEx12a      = document.getElementById('btnEx12a');
+    const btnEx12b      = document.getElementById('btnEx12b');
+    const stats12       = document.getElementById('stats12');
+    const resultsCard12 = document.getElementById('results12');
+    const tableBody12   = document.querySelector('#table12 tbody');
+    const countEl12     = document.getElementById('count12');
+    const messages12    = document.getElementById('messages12');
+    const btnCsv12      = document.getElementById('btnCsv12');
+    const btnTxt12      = document.getElementById('btnTxt12');
+    let lastSolutions12 = [];
+
+    function computeCheck12(baseDigits) {
+      let sum = 0;
+      for (let i = 0; i < 11; i++) {
+        const mul = (i % 2 === 0) ? 2 : 1; // 12-digit UIC: odd positions ×2
+        sum += sumDigits(baseDigits[i] * mul);
+      }
+      const mod = sum % 10;
+      return (mod === 0) ? 0 : (10 - mod);
+    }
+
+    function formatUIC12(baseDigits, check) {
+      const d = baseDigits.join('');
+      return `${d.slice(0,2)}\u00A0${d.slice(2,4)}\u00A0${d[4]}\u00A0${d.slice(5,8)}\u00A0${d.slice(8,11)}-${check}`;
+    }
+
+    function digitsFromUI12() { return inputs12.map(i => sanitizeChar(i.value)); }
+
+    function countKnown12(arr) { return arr.filter(v => v !== '' && v !== 'x').length; }
+
+    function updateStats12() {
+      const arr = digitsFromUI12();
+      const known = countKnown12(arr);
+      stats12.innerHTML = '';
+      const chip = (t) => { const el = document.createElement('span'); el.className = 'chip'; el.textContent = t; stats12.appendChild(el); };
+      chip(`Vyplněno: ${known}/12`);
+      const ok = known >= 5 && !arr.slice(0,11).every(v => v === 'x' || v === '');
+      btnCalc12.disabled = !ok;
+      if (!ok) { btnCsv12.disabled = true; btnTxt12.disabled = true; }
+    }
+
+    function solve12(arr) {
+      const base   = arr.slice(0, 11);
+      const chkIn  = arr[11];
+      const unknownIdx = [];
+      const fixed  = [];
+      for (let i = 0; i < 11; i++) {
+        if (base[i] === '' || base[i] === 'x') unknownIdx.push(i);
+        else fixed[i] = Number(base[i]);
+      }
+      const wantCheck = (chkIn === '' || chkIn === 'x') ? null : Number(chkIn);
+      const solutions = [];
+      const maxComb = 10 ** unknownIdx.length;
+      if (maxComb > 100000) throw new Error('Příliš mnoho kombinací (více než 100k). Zpřesněte zadání.');
+
+      function recurse(pos, current) {
+        if (pos === unknownIdx.length) {
+          const bd = Array.from({length:11}, (_, i) => fixed[i] ?? current[i] ?? 0);
+          const check = computeCheck12(bd);
+          if (wantCheck === null || check === wantCheck) solutions.push({ base: bd, check });
+          return;
+        }
+        const idx = unknownIdx[pos];
+        for (let d = 0; d <= 9; d++) { const next = current.slice(); next[idx] = d; recurse(pos+1, next); }
+      }
+
+      if (unknownIdx.length === 0) {
+        const bd = base.map(Number);
+        const check = computeCheck12(bd);
+        if (wantCheck === null || check === wantCheck) solutions.push({ base: bd, check });
+      } else {
+        recurse(0, []);
+      }
+      return { solutions };
+    }
+
+    function renderResults12({ solutions }) {
+      lastSolutions12 = solutions.slice();
+      resultsCard12.hidden = false;
+      messages12.innerHTML = '';
+      tableBody12.innerHTML = '';
+      countEl12.textContent = `${solutions.length} výsledků`;
+      const has = solutions.length > 0;
+      btnCsv12.disabled = !has;
+      btnTxt12.disabled = !has;
+      if (!has) { messages12.innerHTML = `<div class="msg err">Nenalezeny žádné kombinace. Zkontrolujte vstup.</div>`; return; }
+      if (solutions.length > 5000) {
+        const w = document.createElement('div'); w.className = 'msg warn';
+        w.textContent = 'Velký počet výsledků – zobrazuji pouze prvních 5000.';
+        messages12.appendChild(w);
+      }
+      solutions.slice(0, 5000).forEach((s, i) => {
+        const formatted = formatUIC12(s.base, s.check);
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = String(i+1);
+        const td2 = document.createElement('td'); td2.textContent = formatted;
+        const td3 = document.createElement('td');
+        td3.innerHTML = `<div class="row-actions"><button class="ghost" data-copy="${formatted}">Kopírovat</button></div>`;
+        tr.append(td1, td2, td3);
+        tableBody12.appendChild(tr);
+      });
+      tableBody12.querySelectorAll('button[data-copy]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const text = e.currentTarget.getAttribute('data-copy');
+          try { await navigator.clipboard.writeText(text); e.currentTarget.textContent = 'Zkopírováno ✓'; setTimeout(() => e.currentTarget.textContent = 'Kopírovat', 1200); } catch { alert(text); }
+        });
+      });
+    }
+
+    function calculate12(silent = false) {
+      const arr = digitsFromUI12();
+      if (countKnown12(arr) < 5) { if (!silent) alert('Vyplňte alespoň 5 políček.'); return; }
+      try { renderResults12(solve12(arr)); }
+      catch (err) {
+        resultsCard12.hidden = false;
+        messages12.innerHTML = `<div class="msg err">${err.message}</div>`;
+        tableBody12.innerHTML = ''; countEl12.textContent = '';
+        btnCsv12.disabled = true; btnTxt12.disabled = true;
+      }
+    }
+
+    function tryParsePaste12(text) {
+      if (!text) return false;
+      let t = String(text).trim().replace(/[^0-9xX]/g, '');
+      if (t.length < 11 || t.length > 12) return false;
+      const arr = new Array(12).fill('');
+      for (let i = 0; i < Math.min(11, t.length); i++) arr[i] = sanitizeChar(t[i]);
+      if (t.length === 12) arr[11] = sanitizeChar(t[11]);
+      inputs12.forEach((inp, i) => inp.value = arr[i]);
+      updateStats12();
+      (inputs12.find(i => !i.value) || inputs12[11]).focus();
+      return true;
+    }
+
+    // Export 12-digit
+    function exportCSV12() {
+      const arr = digitsFromUI12();
+      const lines = ['index,UIC12,base_digits,check_digit'];
+      lastSolutions12.forEach((s, i) => {
+        const uic = formatUIC12(s.base, s.check).replace(/\u00A0/g, ' ');
+        lines.push(`${i+1},"${uic}",${s.base.join('')},${s.check}`);
+      });
+      const pat = arr.slice(0,11).map(c=>c||'x').join('') + '-' + (arr[11]||'x');
+      downloadFile(`UIC12_${pat}_${timestampMMDD_HHMM()}.csv`, lines.join('\n'), 'text/csv;charset=utf-8');
+    }
+    function exportTXT12() {
+      const arr = digitsFromUI12();
+      const pat = arr.slice(0,11).map(c=>c||'x').join('') + '-' + (arr[11]||'x');
+      downloadFile(`UIC12_${pat}_${timestampMMDD_HHMM()}.txt`, lastSolutions12.map(s => formatUIC12(s.base, s.check)).join('\n'), 'text/plain;charset=utf-8');
+    }
+    btnCsv12.addEventListener('click', exportCSV12);
+    btnTxt12.addEventListener('click', exportTXT12);
+
+    // Navigation for 12-digit inputs
+    inputs12.forEach((input, idx) => {
+      input.addEventListener('focus', (e) => { e.target.select(); });
+      input.addEventListener('input', (e) => {
+        const v = e.target.value;
+        if (v && v.length > 1) { if (tryParsePaste12(v)) return; }
+        let c = sanitizeChar(v.slice(-1));
+        e.target.value = c;
+        if (c) { const next = inputs12[idx+1]; if (next) next.focus(); }
+        updateStats12();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === ' ') { e.preventDefault(); e.currentTarget.value = ''; const next = inputs12[idx+1]; if (next) next.focus(); updateStats12(); return; }
+        if (e.key === 'Backspace' && !e.currentTarget.value) { const prev = inputs12[idx-1]; if (prev) { prev.focus(); prev.value = ''; e.preventDefault(); updateStats12(); } }
+        if (e.key === 'ArrowLeft')  { const prev = inputs12[idx-1]; if (prev) { prev.focus(); e.preventDefault(); } }
+        if (e.key === 'ArrowRight') { const next = inputs12[idx+1]; if (next) { next.focus(); e.preventDefault(); } }
+        if (e.key === 'Enter') { calculate12(); }
+      });
+      input.addEventListener('paste', (e) => {
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        if (tryParsePaste12(text)) e.preventDefault();
+      });
+    });
+
+    btnCalc12.addEventListener('click', () => calculate12(false));
+    btnClear12.addEventListener('click', () => {
+      inputs12.forEach(i => i.value = '');
+      resultsCard12.hidden = true; lastSolutions12 = [];
+      btnCsv12.disabled = true; btnTxt12.disabled = true;
+      inputs12[0].focus(); updateStats12();
+    });
+    btnEx12a.addEventListener('click', () => { // 94 54 1 471 032-3
+      ['9','4','5','4','1','4','7','1','0','3','2','3'].forEach((v,i) => inputs12[i].value = v);
+      updateStats12(); inputs12[0].focus();
+    });
+    btnEx12b.addEventListener('click', () => { // 91 54 7 151 001-5
+      ['9','1','5','4','7','1','5','1','0','0','1','5'].forEach((v,i) => inputs12[i].value = v);
+      updateStats12(); inputs12[0].focus();
+    });
+
+    updateStats12();
 
     // inicializace
     updateStats();
