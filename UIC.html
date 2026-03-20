@@ -1,0 +1,538 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Výpočet kontrolní UIC číslice</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --fg: #e6eaf2;
+      --muted: #9aa4b2;
+      --accent: #6ea8fe;
+      --card: #10192b;
+      --ok: #3bd671;
+      --warn: #f9c74f;
+      --err: #ff6b6b;
+      --focus: #89b4ff;
+      --chip: #1a2740;
+      /* code tokens (dark) */
+      --code-bg: #0e182c;
+      --code-border: #1e2e54;
+      --code-fg: var(--fg);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      padding: 32px 16px 64px;
+      display: grid; place-items: start center;
+    }
+    .wrap { width: min(980px, 100%); }
+    header h1 { margin: 0 0 8px; font-size: clamp(22px, 3.2vw, 34px); letter-spacing: .2px; }
+    header p { margin: 0; color: var(--muted); }
+
+    .card { background: var(--card); border: 1px solid #16233d; border-radius: 16px; padding: 18px; margin-top: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(8, 1fr); align-items: end; }
+    .grid .cell:nth-child(3) { margin-right: 16px; }
+    .cell { display: grid; gap: 6px; }
+    .cell label { font-size: 12px; color: var(--muted); }
+    input.digit {
+      font: 600 28px/1 monospace; text-align: center; letter-spacing: 1px;
+      background: var(--field-bg); color: var(--fg); border: 1px solid var(--field-border); border-radius: 12px; padding: 10px 6px;
+      outline: none; width: 100%;
+      transition: border-color .15s, box-shadow .15s, transform .06s;
+    }
+    input.digit:focus { border-color: var(--focus); box-shadow: 0 0 0 3px #89b4ff22; }
+
+    .sepcol { text-align: center; padding-bottom: 10px; }
+    .sepcol .dash { font: 700 28px/1 monospace; opacity: .8; user-select: none; }
+
+    .group-title { grid-column: 1 / -1; margin: 6px 0 2px; font-size: 12px; color: var(--muted); letter-spacing: .3px; }
+
+    .btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+    button {
+      background: var(--accent); color: #00143a; border: 0; padding: 10px 14px; border-radius: 12px; cursor: pointer;
+      font-weight: 600; letter-spacing: .2px; box-shadow: 0 6px 18px rgba(110,168,254,.35);
+    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .ghost { background: var(--chip); color: var(--fg); box-shadow: none; border: 1px solid var(--field-border); }
+
+    .toggle { display: inline-flex; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--field-border); border-radius: 12px; background: var(--toggle-bg); }
+    .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .chip { background: var(--chip); color: var(--fg); border: 1px solid #203055; padding: 4px 10px; border-radius: 999px; font-size: 12px; }
+
+    .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+    .hint kbd { background: var(--toggle-bg); border: 1px solid var(--field-border); padding: 2px 6px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+    .results { margin-top: 18px; }
+    .results h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: .2px; }
+    .count { color: var(--muted); font-size: 13px; }
+
+    .table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 14px; border: 1px solid var(--field-border); }
+    .table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .table th { background: var(--table-head); color: var(--muted); font-weight: 600; }
+    .table tr:hover td { background: var(--hover); }
+
+    .row-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    .msg { margin-top: 10px; padding: 10px 12px; border: 1px solid; border-radius: 12px; }
+    .msg.ok { border-color: #1f6035; background: #0f2317; color: #b8ffd0; }
+    .msg.warn { border-color: #5b4b17; background: #231c0b; color: #ffe5a1; }
+    .msg.err { border-color: #5b1a1a; background: #2a0e0e; color: #ffd3d3; }
+
+    .examples { margin-top: 16px; color: var(--muted); font-size: 14px; }
+    /* čitelné code štítky v obou režimech */
+    .examples code { background: var(--code-bg); border: 1px solid var(--code-border); color: var(--code-fg); padding: 2px 6px; border-radius: 6px; }
+
+    .flex { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+    .sep { height: 1px; background: var(--line); margin: 16px 0; }
+
+    :root.theme-light {
+      --bg: #f7f8fa;
+      --fg: #0b1220;
+      --muted: #4a5568;
+      --accent: #1b6ef3;
+      --card: #ffffff;
+      --ok: #2aa952;
+      --warn: #b08700;
+      --err: #c0392b;
+      --focus: #2a6bff;
+      --chip: #eef2f9;
+      --field-bg: #ffffff;
+      --field-border: #d0d7e2;
+      --toggle-bg: #eef2f9;
+      --table-head: #f1f3f8;
+      --line: #e5e9f2;
+      --hover: #f7f9ff;
+      /* code tokens (light) */
+      --code-bg: #eef2f9;
+      --code-border: #d0d7e2;
+      --code-fg: #0b1220;
+    }
+
+    /* extra variables for components (dark base) */
+    :root {
+      --field-bg: #0f1a30;
+      --field-border: #1f2e52;
+      --toggle-bg: #0e182c;
+      --table-head: #0e1a32;
+      --line: #182645;
+      --hover: #0d1730;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a href="index.html" style="display:inline-block;margin-bottom:16px;font-size:13px;color:var(--muted);text-decoration:none;">← Hlavní stránka</a>
+    <header>
+      <h1>Výpočet kontrolní UIC číslice</h1>
+      <p>Zadejte základní kód (6 číslic) a volitelně kontrolní číslici. Neznámé pozice nechte prázdné, napište <b>x</b>, nebo i obyčejnou <b>mezeru</b>. Automatické posouvání mezi políčky je zapnuté.</p>
+    </header>
+
+    <section class="card" id="pad">
+      <div class="group-title">Základní kód (3+3 číslice)</div>
+      <div class="grid" id="grid">
+        <div class="cell"><label>1</label><input inputmode="numeric" maxlength="1" class="digit" id="d0" autocomplete="off"></div>
+        <div class="cell"><label>2</label><input inputmode="numeric" maxlength="1" class="digit" id="d1" autocomplete="off"></div>
+        <div class="cell"><label>3</label><input inputmode="numeric" maxlength="1" class="digit" id="d2" autocomplete="off"></div>
+        <div class="cell"><label>4</label><input inputmode="numeric" maxlength="1" class="digit" id="d3" autocomplete="off"></div>
+        <div class="cell"><label>5</label><input inputmode="numeric" maxlength="1" class="digit" id="d4" autocomplete="off"></div>
+        <div class="cell"><label>6</label><input inputmode="numeric" maxlength="1" class="digit" id="d5" autocomplete="off"></div>
+        <div class="sepcol" aria-hidden="true"><div class="dash">–</div></div>
+        <div class="cell"><label>Kontrolní</label><input inputmode="numeric" maxlength="1" class="digit" id="d6" autocomplete="off"></div>
+      </div>
+
+      <div class="btns">
+        <button id="btnCalc">Spočítat</button>
+        <button id="btnClear" class="ghost" title="Vymazat vše">Vymazat</button>
+        <button id="btnExample1" class="ghost" title="Příklad: 6 4 x 1 0 3 - x">Vložit příklad 1</button>
+        <button id="btnExample2" class="ghost" title="Příklad: 6 x 0 1 0 3 - 8">Vložit příklad 2</button>
+        <label class="toggle" title="Zap/vyp živý výpočet">
+          <input type="checkbox" id="liveToggle" checked>
+          <span>Živě počítat</span>
+        </label>
+        <label class="toggle" title="Přepnout světlý režim">
+          <input type="checkbox" id="themeToggle">
+          <span>Světlý režim</span>
+        </label>
+        <span class="chips" id="stats"></span>
+      </div>
+      <div class="hint">Tipy: pište číslice, <b>x</b> nebo mezery. <kbd>Backspace</kbd> na prázdném poli přesune kurzor zpět. Šipky ← → také fungují. Vložit lze i celý řetězec jako <code>151001-5</code> nebo <code>6x0 103-8</code>.</div>
+    </section>
+
+    <section class="card results" id="results" hidden>
+      <div class="flex">
+        <div>
+          <h3>Výsledky</h3>
+          <span class="count" id="count"></span>
+        </div>
+        <div class="row-actions">
+          <button id="btnCsv" class="ghost" disabled>Stáhnout CSV</button>
+          <button id="btnTxt" class="ghost" disabled>Stáhnout TXT</button>
+        </div>
+      </div>
+      <div id="messages"></div>
+      <div class="sep"></div>
+      <table class="table" id="table">
+        <thead>
+          <tr><th>#</th><th>UIC (formát XXX&nbsp;XXX-<span title="Kontrolní číslice">K</span>)</th><th>Akce</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+    <section class="examples">
+      <p><b>Příklad 1:</b> <code>6 4 x 1 0 3 - x</code> ⇒ dopočítá se celá řada <i>640&nbsp;103</i> až <i>649&nbsp;103</i> s příslušnou kontrolní číslicí.</p>
+      <p><b>Příklad 2:</b> <code>6 x 0 1 0 3 - 8</code> ⇒ nalezne hodnotu <i>x</i> tak, aby kontrolní číslice byla 8 (výsledek: <i>x = 4</i>).</p>
+    </section>
+  </div>
+
+  <script>
+    const inputs = [...document.querySelectorAll('input.digit')];
+    const btnCalc = document.getElementById('btnCalc');
+    const btnClear = document.getElementById('btnClear');
+    const btnExample1 = document.getElementById('btnExample1');
+    const btnExample2 = document.getElementById('btnExample2');
+    const themeToggle = document.getElementById('themeToggle');
+    const liveToggle = document.getElementById('liveToggle');
+    const stats = document.getElementById('stats');
+    const resultsCard = document.getElementById('results');
+    const tableBody = document.querySelector('#table tbody');
+    const countEl = document.getElementById('count');
+    const messages = document.getElementById('messages');
+    const btnCsv = document.getElementById('btnCsv');
+    const btnTxt = document.getElementById('btnTxt');
+
+    let lastSolutions = []; // uloží všechny výsledky pro export
+
+    const sanitizeChar = (ch) => {
+      if (ch === undefined || ch === null) return '';
+      ch = String(ch);
+      if (ch === ' ') return ''; // mezera = neznámé
+      ch = ch.trim();
+      if (/^[0-9]$/.test(ch)) return ch;
+      if (/^[xX]$/.test(ch)) return 'x';
+      return ''; // vše ostatní = neznámé
+    };
+
+    function digitsFromUI() {
+      return inputs.map(i => sanitizeChar(i.value));
+    }
+
+    function setUIFromDigits(arr) {
+      inputs.forEach((i, idx) => i.value = (arr[idx] ?? ''));
+      updateStats();
+      if (liveToggle.checked) calculate(true);
+    }
+
+    function formatUIC(baseDigits, checkDigit) {
+      const s = baseDigits.join('');
+      return `${s.slice(0,3)}\u00A0${s.slice(3,6)}-${checkDigit}`;
+    }
+
+    function sumDigits(n) { return (n>=10) ? (1 + (n-10)) : n; }
+
+    function computeCheckDigit(baseDigits) {
+      let sum = 0;
+      for (let i = 0; i < 6; i++) {
+        const d = baseDigits[i];
+        const mul = (i % 2 === 0) ? 1 : 2; // 1st,3rd,5th *1; 2nd,4th,6th *2
+        sum += sumDigits(d * mul);
+      }
+      const mod = sum % 10;
+      return (mod === 0) ? 0 : (10 - mod);
+    }
+
+    function countKnown(arr) {
+      return arr.filter((v) => v !== '' && v !== 'x').length;
+    }
+
+    function validateEnoughKnown(arr) {
+      const known = countKnown(arr);
+      if (known < 5) return { ok:false, reason: `Vyplňte alespoň 5 z 7 políček (aktuálně ${known}).` };
+      if (arr.slice(0,6).every(v => v==='x' || v==='')) return { ok:false, reason: 'Základní kód nemůže být celý neznámý.' };
+      return { ok:true };
+    }
+
+    function solve(arr) {
+      const base = arr.slice(0,6);
+      const chkIn = arr[6];
+
+      const unknownIdx = [];
+      const fixed = [];
+      for (let i=0;i<6;i++) {
+        if (base[i] === '' || base[i] === 'x') unknownIdx.push(i);
+        else fixed[i] = Number(base[i]);
+      }
+
+      const wantCheck = (chkIn === '' || chkIn === 'x') ? null : Number(chkIn);
+      const solutions = [];
+
+      const maxComb = 10 ** unknownIdx.length;
+      if (maxComb > 100000) {
+        throw new Error('Příliš mnoho kombinací (více než 100k). Zpřesněte zadání.');
+      }
+
+      function recurse(pos, current) {
+        if (pos === unknownIdx.length) {
+          const baseDigits = [0,0,0,0,0,0];
+          for (let i=0;i<6;i++) baseDigits[i] = (fixed[i] ?? current[i] ?? 0);
+          const check = computeCheckDigit(baseDigits);
+          if (wantCheck === null || check === wantCheck) {
+            solutions.push({ base: baseDigits, check });
+          }
+          return;
+        }
+        const idx = unknownIdx[pos];
+        for (let d=0; d<=9; d++) {
+          const next = current.slice();
+          next[idx] = d;
+          recurse(pos+1, next);
+        }
+      }
+
+      if (unknownIdx.length === 0) {
+        const baseDigits = base.map(Number);
+        const check = computeCheckDigit(baseDigits);
+        if (wantCheck === null || check === wantCheck) {
+          solutions.push({ base: baseDigits, check });
+        }
+      } else {
+        recurse(0, []);
+      }
+
+      let extras = null;
+      if (unknownIdx.length === 1 && wantCheck !== null) {
+        const idx = unknownIdx[0];
+        const vals = new Set(solutions.map(s => s.base[idx]));
+        if (vals.size === 1) extras = { solvedIndex: idx, solvedValue: [...vals][0] };
+      }
+
+      return { solutions, extras };
+    }
+
+    function renderResults(res) {
+      const { solutions, extras } = res;
+      lastSolutions = solutions.slice(); // uložit pro export
+      resultsCard.hidden = false;
+      messages.innerHTML = '';
+      tableBody.innerHTML = '';
+      countEl.textContent = `${solutions.length} výsledků`;
+
+      // přepnout stav export tlačítek
+      const has = solutions.length > 0;
+      btnCsv.disabled = !has;
+      btnTxt.disabled = !has;
+
+      if (solutions.length === 0) {
+        messages.innerHTML = `<div class="msg err">Nenalezeny žádné kombinace. Zkontrolujte vstup.</div>`;
+        return;
+      }
+
+      if (extras && typeof extras.solvedValue === 'number') {
+        const idx = extras.solvedIndex;
+        const pos = idx + 1;
+        const val = extras.solvedValue;
+        const info = document.createElement('div');
+        info.className = 'msg ok';
+        info.textContent = `Vyřešeno: na pozici ${pos} musí být číslice ${val}.`;
+        messages.appendChild(info);
+      }
+
+      if (solutions.length > 5000) {
+        const warn = document.createElement('div');
+        warn.className = 'msg warn';
+        warn.textContent = 'Velký počet výsledků – zobrazuji pouze prvních 5000. Export obsahuje všechny.';
+        messages.appendChild(warn);
+      }
+
+      const lim = 5000;
+      solutions.slice(0, lim).forEach((s, i) => {
+        const tr = document.createElement('tr');
+        const idx = document.createElement('td'); idx.textContent = String(i+1);
+        const formatted = formatUIC(s.base, s.check);
+        const tdUIC = document.createElement('td'); tdUIC.textContent = formatted;
+
+        const tdAct = document.createElement('td');
+        tdAct.innerHTML = `<div class="row-actions">
+          <button class="ghost" data-copy="${formatted}">Kopírovat</button>
+        </div>`;
+        tr.append(idx, tdUIC, tdAct);
+        tableBody.appendChild(tr);
+      });
+
+      tableBody.querySelectorAll('button[data-copy]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const text = e.currentTarget.getAttribute('data-copy');
+          try { await navigator.clipboard.writeText(text); e.currentTarget.textContent = 'Zkopírováno ✓'; setTimeout(()=> e.currentTarget.textContent='Kopírovat', 1200);} catch { alert(text); }
+        });
+      });
+    }
+
+    function updateStats() {
+      const arr = digitsFromUI();
+      const known = countKnown(arr);
+      stats.innerHTML = '';
+      const chip = (t)=>{ const el=document.createElement('span'); el.className='chip'; el.textContent=t; stats.appendChild(el); };
+      chip(`Vyplněno: ${known}/7`);
+      const v = validateEnoughKnown(arr);
+      btnCalc.disabled = !v.ok;
+      // když se maže vstup, vypnout export
+      if (!v.ok) { btnCsv.disabled = true; btnTxt.disabled = true; }
+    }
+
+    function calculate(silent=false) {
+      const arr = digitsFromUI();
+      const v = validateEnoughKnown(arr);
+      if (!v.ok) { if (!silent) alert(v.reason); return; }
+      try {
+        const res = solve(arr);
+        renderResults(res);
+      } catch (err) {
+        resultsCard.hidden = false;
+        messages.innerHTML = `<div class=\"msg err\">${err.message}</div>`;
+        tableBody.innerHTML = '';
+        countEl.textContent = '';
+        btnCsv.disabled = true; btnTxt.disabled = true;
+      }
+    }
+
+    // ---------- Export ----------
+    function currentPatternForFilename() {
+      const arr = digitsFromUI();
+      const base = arr.slice(0,6).map(ch => ch || 'x').join('');
+      const chk = (arr[6] || 'x');
+      return `${base}-${chk}`; // např. 64x103-x
+    }
+    function timestampMMDD_HHMM() {
+      const d = new Date();
+      const pad = (n)=>String(n).padStart(2,'0');
+      return `${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
+    function downloadFile(filename, content, mime) {
+      const blob = new Blob([content], { type: mime });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }
+    function exportCSV() {
+      // hlavička + všechny výsledky
+      // sloupce: index,UIC,base,check
+      const lines = ['index,UIC,base_digits,check_digit'];
+      lastSolutions.forEach((s, i) => {
+        const uic = formatUIC(s.base, s.check).replace(/\u00A0/g,' ');
+        lines.push(`${i+1},"${uic}",${s.base.join('')},${s.check}`);
+      });
+      const name = `${currentPatternForFilename()}_${timestampMMDD_HHMM()}.csv`;
+      downloadFile(name, lines.join('\n'), 'text/csv;charset=utf-8');
+    }
+    function exportTXT() {
+      // 1 UIC na řádek
+      const lines = lastSolutions.map(s => formatUIC(s.base, s.check));
+      const name = `${currentPatternForFilename()}_${timestampMMDD_HHMM()}.txt`;
+      downloadFile(name, lines.join('\n'), 'text/plain;charset=utf-8');
+    }
+    btnCsv.addEventListener('click', exportCSV);
+    btnTxt.addEventListener('click', exportTXT);
+    // ----------------------------
+
+    // Auto advance + backspace navigation + paste parsing + mezera = neznámé + live calc
+    inputs.forEach((input, idx) => {
+      input.addEventListener('input', (e) => {
+        const v = e.target.value;
+        if (v && v.length > 1) {
+          if (tryParsePaste(v)) return;
+        }
+        let c = sanitizeChar(v.slice(-1));
+        e.target.value = c;
+        if (c) {
+          const next = inputs[idx+1];
+          if (next) next.focus();
+        }
+        updateStats();
+        if (liveToggle.checked) calculate(true);
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === ' '){
+          e.preventDefault();
+          e.currentTarget.value = '';
+          const next = inputs[idx+1];
+          if (next) next.focus();
+          updateStats();
+          if (liveToggle.checked) calculate(true);
+          return;
+        }
+        if (e.key === 'Backspace' && !e.currentTarget.value) {
+          const prev = inputs[idx-1];
+          if (prev) { prev.focus(); prev.value=''; e.preventDefault(); updateStats(); if (liveToggle.checked) calculate(true); }
+        }
+        if (e.key === 'ArrowLeft') { const prev = inputs[idx-1]; if (prev) { prev.focus(); e.preventDefault(); } }
+        if (e.key === 'ArrowRight') { const next = inputs[idx+1]; if (next) { next.focus(); e.preventDefault(); } }
+        if (e.key === 'Enter') { calculate(); }
+      });
+      input.addEventListener('paste', (e) => {
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        if (tryParsePaste(text)) { e.preventDefault(); }
+      });
+    });
+
+    function tryParsePaste(text) {
+      if (!text) return false;
+      let t = String(text).trim();
+      t = t.replace(/[^0-9xX]/g, '');
+      if (t.length < 6 || t.length > 7) return false;
+      const arr = new Array(7).fill('');
+      for (let i=0;i<Math.min(6, t.length);i++) arr[i] = sanitizeChar(t[i]);
+      if (t.length === 7) arr[6] = sanitizeChar(t[6]);
+      setUIFromDigits(arr);
+      const firstEmpty = inputs.find(i => !i.value);
+      (firstEmpty || inputs[6]).focus();
+      return true;
+    }
+
+    btnCalc.addEventListener('click', () => calculate(false));
+    btnClear.addEventListener('click', () => {
+      setUIFromDigits(['','','','','','','']);
+      resultsCard.hidden = true;
+      inputs[0].focus();
+      lastSolutions = [];
+      btnCsv.disabled = true;
+      btnTxt.disabled = true;
+    });
+
+    btnExample1.addEventListener('click', () => {
+      setUIFromDigits(['6','4','x','1','0','3','x']);
+      inputs[0].focus();
+    });
+    btnExample2.addEventListener('click', () => {
+      setUIFromDigits(['6','x','0','1','0','3','8']);
+      inputs[0].focus();
+    });
+
+    // téma – načtení/zápis
+    const THEME_KEY = 'uic-theme';
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      if (theme === 'light') { root.classList.add('theme-light'); themeToggle.checked = true; }
+      else { root.classList.remove('theme-light'); themeToggle.checked = false; }
+      localStorage.setItem(THEME_KEY, theme);
+    }
+    themeToggle.addEventListener('change', () => {
+      applyTheme(themeToggle.checked ? 'light' : 'dark');
+    });
+    const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+    applyTheme(savedTheme);
+
+    // inicializace
+    updateStats();
+  </script>
+</body>
+</html>
