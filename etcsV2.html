@@ -213,6 +213,8 @@
             outline: none;
             border-color: #4a7abe;
         }
+        .input-card.val-ok { border-color: #16a34a; }
+        .input-card.val-warn { border-color: #dc2626; }
 
         .sign-btn {
             width: 38px;
@@ -273,6 +275,8 @@
             font-weight: 600;
             color: #e0e4ec;
         }
+        .result-box.ok { border-color: #16a34a; }
+        .result-box.warn { border-color: #dc2626; }
         .result-box .result-sub {
             margin-top: 6px;
             font-size: 0.9rem;
@@ -613,6 +617,7 @@
             </label>
             <button class="btn btn-save" id="save-btn" onclick="saveToHistory()" data-i18n="saveToHistory" style="display:none">Save to History</button>
             <button class="btn btn-export" id="export-btn" onclick="exportAsImage()" data-i18n="exportAsImage">Export as Image</button>
+            <button class="btn btn-clear" onclick="clearAll()" data-i18n="clearAll">Clear All</button>
         </div>
 
         <!-- ═══ History ═══ -->
@@ -789,6 +794,7 @@
                 hColSlope: 'Slope',
                 hColSlopeResult: '\u00D710000',
                 manualTitle: 'Inclinometer Manual',
+                clearAll: 'Clear All',
             },
             cs: {
                 pageTitle: 'ETCS Inklinometr <small>V2</small>',
@@ -837,6 +843,7 @@
                 hColSlope: 'Sklon',
                 hColSlopeResult: '\u00D710000',
                 manualTitle: 'N\u00E1vod k inklinometru',
+                clearAll: 'Vymazat v\u0161e',
             }
         };
 
@@ -1034,6 +1041,8 @@
         // ── Calculate Pitch ──
         function calculatePitch() {
             const pitches = [1, 2, 3].map(i => parsePitchV2(i)).filter(v => !isNaN(v));
+            const box = document.getElementById('pitch-result').parentElement;
+            box.classList.remove('ok', 'warn');
 
             if (pitches.length === 0) {
                 document.getElementById('pitch-result').innerText = i18n[currentLang].pitchNoValue;
@@ -1051,10 +1060,12 @@
                 lastPitchData = { rounded: meanPitch, coeff: match.coeff };
                 document.getElementById('pitch-result').innerText =
                     i18n[currentLang].pitchResult(unmodifiedMean.toFixed(5), meanPitch.toFixed(2), match.coeff);
+                box.classList.add('ok');
             } else {
                 lastPitchData = null;
                 document.getElementById('pitch-result').innerText =
                     i18n[currentLang].pitchNoCoeff(unmodifiedMean.toFixed(5), meanPitch.toFixed(2));
+                box.classList.add('warn');
             }
 
             document.getElementById('pitch-precise').innerText =
@@ -1065,6 +1076,8 @@
         // ── Calculate Tilt ──
         function calculateTilt() {
             const tilts = [1, 2, 3].map(i => parseDec(document.getElementById('tilt' + i).value)).filter(v => !isNaN(v));
+            const box = document.getElementById('tilt-result').parentElement;
+            box.classList.remove('ok', 'warn');
 
             if (tilts.length === 0) {
                 document.getElementById('tilt-result').innerText = i18n[currentLang].tiltNoValue;
@@ -1074,6 +1087,7 @@
             const mean = tilts.reduce((s, v) => s + v, 0) / tilts.length;
             lastTiltData = { mean: mean };
             document.getElementById('tilt-result').innerText = i18n[currentLang].tiltResult(mean.toFixed(5));
+            box.classList.add(Math.abs(mean) <= 0.5 ? 'ok' : 'warn');
             tryAutoSave();
         }
 
@@ -1096,23 +1110,69 @@
         // ── Clear functions ──
         function clearPitch() {
             for (let i = 1; i <= 3; i++) {
-                document.getElementById('v2-pitch' + i).value = '';
+                var el = document.getElementById('v2-pitch' + i);
+                el.value = '';
+                el.closest('.input-card').classList.remove('val-ok', 'val-warn');
                 signs[i] = 'neg';
                 updateSignDisplay(i);
             }
             document.getElementById('pitch-result').innerText = '';
             document.getElementById('pitch-precise').innerText = '';
+            document.getElementById('pitch-result').parentElement.classList.remove('ok', 'warn');
         }
 
         function clearTilt() {
-            for (let i = 1; i <= 3; i++) document.getElementById('tilt' + i).value = '';
+            for (let i = 1; i <= 3; i++) {
+                var el = document.getElementById('tilt' + i);
+                el.value = '';
+                el.closest('.input-card').classList.remove('val-ok', 'val-warn');
+            }
             document.getElementById('tilt-result').innerText = '';
+            document.getElementById('tilt-result').parentElement.classList.remove('ok', 'warn');
         }
 
         function clearSlope() {
             for (let i = 1; i <= 6; i++) document.getElementById('slope' + i).value = '';
             document.getElementById('slope-result').innerText = '';
+            document.getElementById('slope-result').parentElement.classList.remove('ok', 'warn');
         }
+
+        function clearAll() {
+            document.getElementById('train-id').value = '';
+            document.getElementById('radar-sw').value = '';
+            clearPitch();
+            clearTilt();
+            clearSlope();
+            lastPitchData = null;
+            lastTiltData  = null;
+            lastSlopeData = null;
+            currentSessionId = null;
+        }
+
+        // ── Enter key triggers calculate ──
+        document.addEventListener('keydown', function(e) {
+            if (e.key !== 'Enter') return;
+            const el = e.target;
+            if (el.tagName !== 'INPUT' || el.type !== 'text') return;
+            const id = el.id;
+            if (id.startsWith('v2-pitch')) { calculatePitch(); e.preventDefault(); }
+            else if (id.startsWith('tilt')) { calculateTilt(); e.preventDefault(); }
+            else if (id.startsWith('slope')) { calculateSlope(); e.preventDefault(); }
+        });
+
+        // ── Live input validation ──
+        function validateCard(input, limit) {
+            const card = input.closest('.input-card');
+            card.classList.remove('val-ok', 'val-warn');
+            const val = parseFloat(input.value.trim().replace(',', '.').replace(/^[+-]/, ''));
+            if (isNaN(val) || input.value.trim() === '') return;
+            card.classList.add(val <= limit ? 'val-ok' : 'val-warn');
+        }
+
+        [1, 2, 3].forEach(function(i) {
+            document.getElementById('v2-pitch' + i).addEventListener('input', function() { validateCard(this, 2); });
+            document.getElementById('tilt' + i).addEventListener('input', function() { validateCard(this, 0.5); });
+        });
 
         // ── History / Autosave ──
         function loadHistory() {
