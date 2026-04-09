@@ -467,8 +467,8 @@
             </div>
 
             <div class="legend">
-                <span><span class="tri neg-color">&#x25E2;</span> <span data-i18n="legendNeg">left side lower (negative)</span></span>
-                <span><span class="tri pos-color">&#x25E3;</span> <span data-i18n="legendPos">right side lower (positive)</span></span>
+                <span><span class="tri neg-color" id="legend-neg-tri">&#x25E2;</span> <span data-i18n="legendNeg">left side lower (negative)</span></span>
+                <span><span class="tri pos-color" id="legend-pos-tri">&#x25E3;</span> <span data-i18n="legendPos">right side lower (positive)</span></span>
             </div>
 
             <div class="card-group">
@@ -917,7 +917,8 @@
             const isNeg = signs[idx] === 'neg';
             const showLeftLower = mirrored ? !isNeg : isNeg;
             btn.innerHTML = showLeftLower ? '\u25E2' : '\u25E3';
-            btn.classList.add(isNeg ? 'neg' : 'pos');
+            // Color follows the triangle shape (matches legend), not the internal sign
+            btn.classList.add(showLeftLower ? 'neg' : 'pos');
         }
 
         // ── Parse helpers ──
