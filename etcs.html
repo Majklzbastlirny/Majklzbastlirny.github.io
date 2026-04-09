@@ -6,8 +6,11 @@
     <title>ETCS Inclinometer Helper Tool</title>
     <style>
         /* General body styling for low-light conditions */
-        html, body {
-            height: 100%; /* Ensure background color covers the full viewport */
+        html {
+            height: 100%;
+        }
+        body {
+            min-height: 100%; /* Allow body to grow beyond viewport */
             margin: 0;
             padding: 0;
             background-color: #121212; /* Dark gray-black, easy on the eyes */
@@ -172,6 +175,42 @@
 
         #history-section tr:hover td {
             background: #1e1e1e;
+        }
+
+        @media (max-width: 900px) {
+            html, body {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .main-content {
+                width: auto;
+                margin: 16px;
+            }
+            .manual {
+                margin-left: 0;
+                border-left: none;
+                border-top: 1px solid #333333;
+                padding-left: 0;
+                padding-top: 16px;
+                margin: 0 16px 16px;
+            }
+            h1 {
+                font-size: 1.2rem;
+            }
+            .pitch-image {
+                height: auto;
+                max-height: 120px;
+                float: none;
+                margin: 10px 0;
+            }
+            #history-section th, #history-section td {
+                font-size: 0.7rem;
+                padding: 4px;
+            }
+            #history-section table {
+                display: block;
+                overflow-x: auto;
+            }
         }
     </style>
 </head>
