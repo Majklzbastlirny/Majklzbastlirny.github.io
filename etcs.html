@@ -298,25 +298,43 @@
         <!-- Track Slope Measurement Section -->
         <div class="section">
             <h2 data-i18n="trackSlopeMeasurement">Track Slope Measurement</h2>
-            <div class="note" data-i18n-html="trackSlopeNote">Measure point 1: below the ETCS cubicle on its vertical axes<br>Measure point 2: from 1,50 to 2 m on the right of the first measure point.<br>Measure point 3: from 1,50 to 2 m on the left of the first measure point.</div>
+            <div class="note" data-i18n-html="trackSlopeNote">Measure point 1: below the ETCS cubicle on its vertical axes<br>Measure point 2: from 1,50 to 2 m on the right of the first measure point.<br>Measure point 3: from 1,50 to 2 m on the left of the first measure point.<br>Measure points 4–6: same positions as 1–3, but on the second rail.</div>
             <div style="display: flex; align-items: center;">
-                <div>
+                <div style="display: flex; gap: 24px;">
                     <div>
-                        <label for="slope1" data-i18n="slope1Label">Slope 1:</label>
-                        <input type="text" id="slope1"> °
+                        <div>
+                            <label for="slope1" data-i18n="slope1Label">Slope 1:</label>
+                            <input type="text" id="slope1"> °
+                        </div>
+                        <div>
+                            <label for="slope2" data-i18n="slope2Label">Slope 2:</label>
+                            <input type="text" id="slope2"> °
+                        </div>
+                        <div>
+                            <label for="slope3" data-i18n="slope3Label">Slope 3:</label>
+                            <input type="text" id="slope3"> °
+                        </div>
                     </div>
                     <div>
-                        <label for="slope2" data-i18n="slope2Label">Slope 2:</label>
-                        <input type="text" id="slope2"> °
+                        <div>
+                            <label for="slope4" data-i18n="slope4Label">Slope 4:</label>
+                            <input type="text" id="slope4"> °
+                        </div>
+                        <div>
+                            <label for="slope5" data-i18n="slope5Label">Slope 5:</label>
+                            <input type="text" id="slope5"> °
+                        </div>
+                        <div>
+                            <label for="slope6" data-i18n="slope6Label">Slope 6:</label>
+                            <input type="text" id="slope6"> °
+                        </div>
                     </div>
-                    <div>
-                        <label for="slope3" data-i18n="slope3Label">Slope 3:</label>
-                        <input type="text" id="slope3"> °
-                    </div>
-                    <button data-i18n="calculateTrackSlope" onclick="calculateTrackSlope()">Calculate Track Slope</button>
-                    <button class="clear-button" data-i18n="clear" onclick="clearSlopeInputs()">Clear</button>
                 </div>
                 <img src="slope-diagram.png" alt="Slope diagram" class="pitch-image">
+            </div>
+            <div>
+                <button data-i18n="calculateTrackSlope" onclick="calculateTrackSlope()">Calculate Track Slope</button>
+                <button class="clear-button" data-i18n="clear" onclick="clearSlopeInputs()">Clear</button>
             </div>
             <div id="slope-result"></div>
         </div>
@@ -476,10 +494,13 @@
                 tiltMeasurement: 'Tilt Measurement',
                 calculateTiltMean: 'Calculate Tilt Mean',
                 trackSlopeMeasurement: 'Track Slope Measurement',
-                trackSlopeNote: 'Measure point 1: below the ETCS cubicle on its vertical axes<br>Measure point 2: from 1,50 to 2 m on the right of the first measure point.<br>Measure point 3: from 1,50 to 2 m on the left of the first measure point.',
+                trackSlopeNote: 'Measure point 1: below the ETCS cubicle on its vertical axes<br>Measure point 2: from 1,50 to 2 m on the right of the first measure point.<br>Measure point 3: from 1,50 to 2 m on the left of the first measure point.<br>Measure points 4–6: same positions as 1–3, but on the second rail.',
                 slope1Label: 'Slope 1:',
                 slope2Label: 'Slope 2:',
                 slope3Label: 'Slope 3:',
+                slope4Label: 'Slope 4:',
+                slope5Label: 'Slope 5:',
+                slope6Label: 'Slope 6:',
                 calculateTrackSlope: 'Calculate Track Slope',
                 clear: 'Clear',
                 clearAll: 'Clear All',
@@ -517,10 +538,13 @@
                 tiltMeasurement: 'Měření Tilt',
                 calculateTiltMean: 'Vypočítat průměr Tilt',
                 trackSlopeMeasurement: 'Měření sklonu koleje',
-                trackSlopeNote: 'Bod měření 1: pod skříní ETCS na její svislé ose<br>Bod měření 2: od 1,50 do 2 m vpravo od prvního bodu měření.<br>Bod měření 3: od 1,50 do 2 m vlevo od prvního bodu měření.',
+                trackSlopeNote: 'Bod měření 1: pod skříní ETCS na její svislé ose<br>Bod měření 2: od 1,50 do 2 m vpravo od prvního bodu měření.<br>Bod měření 3: od 1,50 do 2 m vlevo od prvního bodu měření.<br>Body měření 4–6: stejné pozice jako 1–3, ale na druhé kolejnici.',
                 slope1Label: 'Sklon 1:',
                 slope2Label: 'Sklon 2:',
                 slope3Label: 'Sklon 3:',
+                slope4Label: 'Sklon 4:',
+                slope5Label: 'Sklon 5:',
+                slope6Label: 'Sklon 6:',
                 calculateTrackSlope: 'Vypočítat sklon koleje',
                 clear: 'Vymazat',
                 clearAll: 'Vymazat vše',
@@ -818,8 +842,11 @@
             const slope1 = parsePitch(document.getElementById('slope1').value);
             const slope2 = parsePitch(document.getElementById('slope2').value);
             const slope3 = parsePitch(document.getElementById('slope3').value);
+            const slope4 = parsePitch(document.getElementById('slope4').value);
+            const slope5 = parsePitch(document.getElementById('slope5').value);
+            const slope6 = parsePitch(document.getElementById('slope6').value);
 
-            const slopes = [slope1, slope2, slope3].filter(value => !isNaN(value));
+            const slopes = [slope1, slope2, slope3, slope4, slope5, slope6].filter(value => !isNaN(value));
 
             if (slopes.length === 0) {
                 document.getElementById('slope-result').innerText = i18n[currentLang].slopeNoValue;
@@ -902,6 +929,9 @@
             document.getElementById('slope1').value = '';
             document.getElementById('slope2').value = '';
             document.getElementById('slope3').value = '';
+            document.getElementById('slope4').value = '';
+            document.getElementById('slope5').value = '';
+            document.getElementById('slope6').value = '';
         }
 
         function clearAllInputs() {
