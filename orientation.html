@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Orientation Sensor</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;700&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0e1117;
+    --card: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --dim: #7d8590;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #d29922;
+    --red: #f85149;
+  }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.5rem 1rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    margin-bottom: 0.25rem;
+  }
+
+  .subtitle {
+    color: var(--dim);
+    font-size: 0.8rem;
+    margin-bottom: 1.5rem;
+  }
+
+  #startBtn {
+    background: var(--accent);
+    color: var(--bg);
+    border: none;
+    padding: 0.75rem 2rem;
+    border-radius: 8px;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 0.95rem;
+    cursor: pointer;
+    margin-bottom: 1.5rem;
+    transition: opacity 0.2s;
+  }
+  #startBtn:active { opacity: 0.8; }
+  #startBtn.hidden { display: none; }
+
+  .status {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+    margin-bottom: 1.5rem;
+  }
+  .status .dot {
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--red);
+    margin-right: 6px;
+    vertical-align: middle;
+  }
+  .status.active .dot { background: var(--green); }
+
+  /* 3D phone scene */
+  .scene {
+    width: 180px;
+    height: 260px;
+    perspective: 600px;
+    margin-bottom: 2rem;
+  }
+
+  .phone {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform 0.1s ease-out;
+  }
+
+  .phone-face {
+    position: absolute;
+    backface-visibility: visible;
+  }
+
+  .phone-front {
+    width: 180px; height: 260px;
+    background: #1c2128;
+    border: 2px solid var(--border);
+    border-radius: 18px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transform: translateZ(6px);
+  }
+  .phone-front .screen {
+    width: 156px; height: 232px;
+    background: linear-gradient(145deg, #0d1117, #161b22);
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--accent);
+  }
+
+  .phone-back {
+    width: 180px; height: 260px;
+    background: #1c2128;
+    border: 2px solid var(--border);
+    border-radius: 18px;
+    transform: translateZ(-6px) rotateY(180deg);
+  }
+
+  .phone-side-r { width: 12px; height: 260px; background: #24292e; border-radius: 2px; transform: rotateY(90deg) translateZ(84px); }
+  .phone-side-l { width: 12px; height: 260px; background: #24292e; border-radius: 2px; transform: rotateY(-90deg) translateZ(96px); }
+  .phone-side-t { width: 180px; height: 12px; background: #24292e; border-radius: 2px; transform: rotateX(90deg) translateZ(0px); }
+  .phone-side-b { width: 180px; height: 12px; background: #24292e; border-radius: 2px; transform: rotateX(-90deg) translateZ(248px); }
+
+  /* Data cards */
+  .axes {
+    width: 100%;
+    max-width: 360px;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+
+  .axis-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .axis-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--dim);
+  }
+  .axis-label span {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--text);
+    margin-top: 2px;
+  }
+
+  .axis-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 600;
+    min-width: 110px;
+    text-align: right;
+  }
+
+  .axis-card:nth-child(1) .axis-value { color: var(--accent); }
+  .axis-card:nth-child(2) .axis-value { color: var(--green); }
+  .axis-card:nth-child(3) .axis-value { color: var(--orange); }
+
+  .bar-track {
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    margin-top: 0.6rem;
+    overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%;
+    border-radius: 2px;
+    transition: width 0.1s ease-out;
+    width: 50%;
+  }
+  .axis-card:nth-child(1) .bar-fill { background: var(--accent); }
+  .axis-card:nth-child(2) .bar-fill { background: var(--green); }
+  .axis-card:nth-child(3) .bar-fill { background: var(--orange); }
+
+  .samples {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--dim);
+    margin-top: 1.5rem;
+  }
+</style>
+</head>
+<body>
+
+<h1>📐 Orientation Sensor</h1>
+<p class="subtitle">deviceorientation API</p>
+
+<button id="startBtn">Start Sensor</button>
+
+<div class="status" id="status">
+  <span class="dot"></span>Inactive
+</div>
+
+<div class="scene">
+  <div class="phone" id="phone">
+    <div class="phone-face phone-front"><div class="screen">sensor<br>active</div></div>
+    <div class="phone-face phone-back"></div>
+    <div class="phone-face phone-side-r"></div>
+    <div class="phone-face phone-side-l"></div>
+    <div class="phone-face phone-side-t"></div>
+    <div class="phone-face phone-side-b"></div>
+  </div>
+</div>
+
+<div class="axes">
+  <div class="axis-card">
+    <div>
+      <div class="axis-label">α — Z-axis<span>Yaw (compass)</span></div>
+      <div class="bar-track"><div class="bar-fill" id="barAlpha"></div></div>
+    </div>
+    <div class="axis-value" id="valAlpha">0.0°</div>
+  </div>
+  <div class="axis-card">
+    <div>
+      <div class="axis-label">β — X-axis<span>Pitch (tilt fwd/back)</span></div>
+      <div class="bar-track"><div class="bar-fill" id="barBeta"></div></div>
+    </div>
+    <div class="axis-value" id="valBeta">0.0°</div>
+  </div>
+  <div class="axis-card">
+    <div>
+      <div class="axis-label">γ — Y-axis<span>Roll (tilt left/right)</span></div>
+      <div class="bar-track"><div class="bar-fill" id="barGamma"></div></div>
+    </div>
+    <div class="axis-value" id="valGamma">0.0°</div>
+  </div>
+</div>
+
+<div class="samples" id="samples">Samples: 0</div>
+
+<script>
+  const phone = document.getElementById('phone');
+  const valAlpha = document.getElementById('valAlpha');
+  const valBeta = document.getElementById('valBeta');
+  const valGamma = document.getElementById('valGamma');
+  const barAlpha = document.getElementById('barAlpha');
+  const barBeta = document.getElementById('barBeta');
+  const barGamma = document.getElementById('barGamma');
+  const statusEl = document.getElementById('status');
+  const samplesEl = document.getElementById('samples');
+  const startBtn = document.getElementById('startBtn');
+
+  let count = 0;
+
+  function onOrientation(e) {
+    const a = e.alpha ?? 0; // 0-360
+    const b = e.beta ?? 0;  // -180 to 180
+    const g = e.gamma ?? 0; // -90 to 90
+
+    count++;
+
+    valAlpha.textContent = a.toFixed(1) + '°';
+    valBeta.textContent = b.toFixed(1) + '°';
+    valGamma.textContent = g.toFixed(1) + '°';
+
+    // bars: alpha 0-360, beta -180..180, gamma -90..90
+    barAlpha.style.width = (a / 360 * 100) + '%';
+    barBeta.style.width = ((b + 180) / 360 * 100) + '%';
+    barGamma.style.width = ((g + 90) / 180 * 100) + '%';
+
+    // 3D phone: map orientation to CSS transform
+    phone.style.transform =
+      `rotateZ(${-g}deg) rotateX(${b}deg)`;
+
+    if (count % 10 === 0) samplesEl.textContent = 'Samples: ' + count;
+  }
+
+  function activate() {
+    statusEl.innerHTML = '<span class="dot"></span>Active';
+    statusEl.classList.add('active');
+    startBtn.classList.add('hidden');
+    window.addEventListener('deviceorientation', onOrientation);
+  }
+
+  startBtn.addEventListener('click', () => {
+    // iOS 13+ requires permission
+    if (typeof DeviceOrientationEvent !== 'undefined' &&
+        typeof DeviceOrientationEvent.requestPermission === 'function') {
+      DeviceOrientationEvent.requestPermission()
+        .then(state => {
+          if (state === 'granted') activate();
+          else statusEl.innerHTML = '<span class="dot"></span>Permission denied';
+        })
+        .catch(err => {
+          statusEl.innerHTML = '<span class="dot"></span>Error: ' + err.message;
+        });
+    } else {
+      activate();
+    }
+  });
+</script>
+</body>
+</html>
