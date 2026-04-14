@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Výpočet kontrolní UIC číslice</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --fg: #e6eaf2;
+      --muted: #9aa4b2;
+      --accent: #6ea8fe;
+      --card: #10192b;
+      --ok: #3bd671;
+      --warn: #f9c74f;
+      --err: #ff6b6b;
+      --focus: #89b4ff;
+      --chip: #1a2740;
+      /* code tokens (dark) */
+      --code-bg: #0e182c;
+      --code-border: #1e2e54;
+      --code-fg: var(--fg);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; background: var(--bg); color: var(--fg);
+      font: 16px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      padding: 32px 16px 64px;
+      display: grid; place-items: start center;
+    }
+    .wrap { width: min(980px, 100%); }
+    header h1 { margin: 0 0 8px; font-size: clamp(22px, 3.2vw, 34px); letter-spacing: .2px; }
+    header p { margin: 0; color: var(--muted); }
+
+    .card { background: var(--card); border: 1px solid #16233d; border-radius: 16px; padding: 18px; margin-top: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+
+    .grid { display: grid; gap: 12px; grid-template-columns: repeat(8, 1fr); align-items: end; }
+    .grid .cell:nth-child(3) { margin-right: 16px; }
+    .cell { display: grid; gap: 6px; }
+    .cell label { font-size: 12px; color: var(--muted); }
+    input.digit {
+      font: 600 28px/1 monospace; text-align: center; letter-spacing: 1px;
+      background: var(--field-bg); color: var(--fg); border: 1px solid var(--field-border); border-radius: 12px; padding: 10px 6px;
+      outline: none; width: 100%;
+      transition: border-color .15s, box-shadow .15s, transform .06s;
+    }
+    input.digit:focus { border-color: var(--focus); box-shadow: 0 0 0 3px #89b4ff22; }
+
+    .sepcol { text-align: center; padding-bottom: 10px; }
+    .sepcol .dash { font: 700 28px/1 monospace; opacity: .8; user-select: none; }
+
+    .group-title { grid-column: 1 / -1; margin: 6px 0 2px; font-size: 12px; color: var(--muted); letter-spacing: .3px; }
+
+    .btns { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+    button {
+      background: var(--accent); color: #00143a; border: 0; padding: 10px 14px; border-radius: 12px; cursor: pointer;
+      font-weight: 600; letter-spacing: .2px; box-shadow: 0 6px 18px rgba(110,168,254,.35);
+    }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    .ghost { background: var(--chip); color: var(--fg); box-shadow: none; border: 1px solid var(--field-border); }
+
+    .toggle { display: inline-flex; gap: 8px; align-items: center; padding: 8px 10px; border: 1px solid var(--field-border); border-radius: 12px; background: var(--toggle-bg); }
+    .toggle input { accent-color: var(--accent); width: 16px; height: 16px; }
+
+    .chips { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+    .chip { background: var(--chip); color: var(--fg); border: 1px solid #203055; padding: 4px 10px; border-radius: 999px; font-size: 12px; }
+
+    .hint { color: var(--muted); font-size: 13px; margin-top: 8px; }
+    .hint kbd { background: var(--toggle-bg); border: 1px solid var(--field-border); padding: 2px 6px; border-radius: 6px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+
+    .results { margin-top: 18px; }
+    .results h3 { margin: 0 0 8px; font-size: 16px; letter-spacing: .2px; }
+    .count { color: var(--muted); font-size: 13px; }
+
+    .table { width: 100%; border-collapse: collapse; overflow: hidden; border-radius: 14px; border: 1px solid var(--field-border); }
+    .table th, .table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line); font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    .table th { background: var(--table-head); color: var(--muted); font-weight: 600; }
+    .table tr:hover td { background: var(--hover); }
+
+    .row-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+    .msg { margin-top: 10px; padding: 10px 12px; border: 1px solid; border-radius: 12px; }
+    .msg.ok { border-color: #1f6035; background: #0f2317; color: #b8ffd0; }
+    .msg.warn { border-color: #5b4b17; background: #231c0b; color: #ffe5a1; }
+    .msg.err { border-color: #5b1a1a; background: #2a0e0e; color: #ffd3d3; }
+
+    .examples { margin-top: 16px; color: var(--muted); font-size: 14px; }
+    /* čitelné code štítky v obou režimech */
+    .examples code { background: var(--code-bg); border: 1px solid var(--code-border); color: var(--code-fg); padding: 2px 6px; border-radius: 6px; }
+
+    .flex { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; }
+
+    /* Range row for X interval */
+      display: grid; gap: 12px; grid-template-columns: repeat(8, 1fr);
+      margin-top: 8px; align-items: center;
+    }
+      display: flex; gap: 4px; align-items: center; flex-wrap: wrap; justify-content: center;
+      visibility: hidden; opacity: 0; transition: opacity .2s, visibility .2s;
+    }
+      width: 36px; font: 600 16px/1 monospace; text-align: center;
+      background: var(--field-bg); color: var(--fg); border: 1px solid var(--field-border);
+      border-radius: 8px; padding: 4px 2px; outline: none;
+      -moz-appearance: textfield;
+    }
+
+    /* Picker row for 12-digit (type + country) */
+    .picker-row {
+      display: flex; gap: 16px; flex-wrap: wrap; margin-top: 6px;
+    }
+    .picker-group {
+      display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 200px;
+    }
+    .picker-label { font-size: 11px; color: var(--muted); letter-spacing: .3px; }
+    .picker-group select {
+      font-size: 13px; padding: 7px 10px; border-radius: 10px;
+      background: var(--field-bg); color: var(--fg); border: 1px solid var(--field-border);
+      outline: none; cursor: pointer; width: 100%;
+    }
+    .picker-group select:focus { border-color: var(--focus); }
+    .picker-feedback {
+      font-size: 12px; min-height: 16px;
+    }
+    .picker-feedback.ok { color: var(--ok); }
+    .picker-feedback.invalid { color: var(--err); }
+    .picker-feedback:empty { display: none; }
+    .sep { height: 1px; background: var(--line); margin: 16px 0; }
+
+    :root.theme-light {
+      --bg: #f7f8fa;
+      --fg: #0b1220;
+      --muted: #4a5568;
+      --accent: #1b6ef3;
+      --card: #ffffff;
+      --ok: #2aa952;
+      --warn: #b08700;
+      --err: #c0392b;
+      --focus: #2a6bff;
+      --chip: #eef2f9;
+      --field-bg: #ffffff;
+      --field-border: #d0d7e2;
+      --toggle-bg: #eef2f9;
+      --table-head: #f1f3f8;
+      --line: #e5e9f2;
+      --hover: #f7f9ff;
+      /* code tokens (light) */
+      --code-bg: #eef2f9;
+      --code-border: #d0d7e2;
+      --code-fg: #0b1220;
+    }
+
+    /* extra variables for components (dark base) */
+    /* Info box */
+    details.info-box {
+      background: var(--card); border: 1px solid #16233d; border-radius: 12px;
+      padding: 10px 16px; margin-top: 18px;
+    }
+    details.info-box summary {
+      cursor: pointer; font-size: 13px; color: var(--muted); user-select: none;
+      list-style: none; padding: 4px 0;
+    }
+    details.info-box summary::-webkit-details-marker { display: none; }
+    details.info-box[open] { padding-bottom: 14px; }
+    details.info-box[open] summary { margin-bottom: 10px; color: var(--fg); }
+    .info-table {
+      border-collapse: collapse; font-size: 13px; margin-top: 8px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    }
+    .info-table th, .info-table td { padding: 4px 10px; text-align: right; border-bottom: 1px solid var(--line); }
+    .info-table th { color: var(--muted); font-weight: 600; }
+    .info-table td:first-child { text-align: left; }
+    .info-table tr.total td { color: var(--accent); font-weight: 600; }
+    /* 12-digit grid */
+    .grid12 { display: flex; gap: 14px; align-items: flex-end; flex-wrap: wrap; row-gap: 8px; }
+    .dg { display: grid; gap: 4px; }
+    .dg-cells { display: flex; gap: 6px; }
+    .dg .group-title { font-size: 11px; }
+
+    :root {
+      --field-bg: #0f1a30;
+      --field-border: #1f2e52;
+      --toggle-bg: #0e182c;
+      --table-head: #0e1a32;
+      --line: #182645;
+      --hover: #0d1730;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <a href="index.html" style="display:inline-block;margin-bottom:16px;font-size:13px;color:var(--muted);text-decoration:none;">← Hlavní stránka</a>
+    <header>
+      <h1>12místný kód UIC/EVN</h1>
+      <p>Kalkulátor kontrolní číslice pro hnací vozidla (UIC 438-3), osobní vozy (UIC 438-1) i nákladní vagóny (UIC 438-2). Algoritmus kontrolní číslice je pro všechny typy stejný.</p>
+      <p style="margin-top:8px;font-size:13px;color:var(--muted)">Hledáte <a href="UIC.html" style="color:var(--accent)">7místný kalkulátor</a> (zkrácené označení)?</p>
+    </header>
+
+    <details class="info-box">
+      <summary>▶ Význam číslic 1–2: kategorie vozidla</summary>
+      <p style="font-size:13px;color:var(--muted);margin:0 0 8px">
+        Prvních 12 číslic tvoří EVN (European Vehicle Number). Číslice 1–2 určují kategorii vozidla dle tří různých norem:
+        <b>9x</b> = hnací vozidla (UIC 438-3), <b>5x–7x</b> = osobní vozy (UIC 438-1), <b>0x–4x, 8x</b> = nákladní vagóny (UIC 438-2).
+        Kontrolní číslice (12.) se počítá stejným algoritmem pro všechny kategorie.
+      </p>
+      <table class="info-table" style="margin-top:6px">
+        <thead><tr><th style="text-align:left">Kód</th><th style="text-align:left">Kategorie</th><th style="text-align:left">Norma</th></tr></thead>
+        <tbody>
+          <tr><td><code>50–53</code></td><td>Osobní vůz, vnitrostátní</td><td>UIC 438-1</td></tr>
+          <tr><td><code>55–56</code></td><td>Osobní vůz, zavazadlový / polopřívěs</td><td>UIC 438-1</td></tr>
+          <tr><td><code>60–61</code></td><td>Osobní vůz, mezinárodní (RIC)</td><td>UIC 438-1</td></tr>
+          <tr><td><code>70–73</code></td><td>Osobní vůz s přetlakem</td><td>UIC 438-1</td></tr>
+          <tr><td><code>90</code></td><td>Ostatní (jinak nezařazené hn. vozidlo)</td><td>UIC 438-3</td></tr>
+          <tr><td><code>91</code></td><td>Elektrická lokomotiva</td><td>UIC 438-3</td></tr>
+          <tr><td><code>92</code></td><td>Dieselová lokomotiva</td><td>UIC 438-3</td></tr>
+          <tr><td><code>93</code></td><td>El. jednotka – vysokorychlostní [hn. vůz / přívěs]</td><td>UIC 438-3</td></tr>
+          <tr><td><code>94</code></td><td>Elektrická jednotka [hn. vůz / přívěs]</td><td>UIC 438-3</td></tr>
+          <tr><td><code>95</code></td><td>Dieselová jednotka [hn. vůz / přívěs]</td><td>UIC 438-3</td></tr>
+          <tr><td><code>96</code></td><td>Specializovaný přívěsný vůz</td><td>UIC 438-3</td></tr>
+          <tr><td><code>97</code></td><td>Elektrický posunovač</td><td>UIC 438-3</td></tr>
+          <tr><td><code>98</code></td><td>Dieselový posunovač</td><td>UIC 438-3</td></tr>
+          <tr><td><code>99</code></td><td>Speciální vozidlo (např. služební hn. vozidlo)</td><td>UIC 438-3</td></tr>
+        </tbody>
+      </table>
+      <p style="font-size:12px;color:var(--muted);margin:8px 0 0">
+        Číslice 3–4 = kód státu registrace (UIC 920-14). Číslice 5–11 = volně definováno státem.
+        Pro hnací vozidla: 5. číslice (doplňková) závisí na kombinaci typu a státu.
+        Algoritmus 12místného kódu: lichá místa ×2, sudá ×1 (opačné pořadí než 7místný kód).
+      </p>
+    </details>
+
+    <section class="card" id="pad12" style="margin-top:18px">
+      <div class="group-title">Rychlá volba typu a státu</div>
+      <div class="picker-row" id="pickerRow12">
+        <div class="picker-group">
+          <label class="picker-label">Typ vozidla (číslice 1–2)</label>
+          <select id="typePicker12">
+            <option value="">— Vybrat typ —</option>
+          </select>
+          <span class="picker-feedback" id="typeLabel12"></span>
+        </div>
+        <div class="picker-group">
+          <label class="picker-label">Stát (číslice 3–4)</label>
+          <select id="countryPicker12" title="Vybrat stát">
+            <option value="">— Vybrat stát —</option>
+          </select>
+          <span class="picker-feedback" id="countryLabel12"></span>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="group-title">Kód (11 číslic + kontrolní)</div>
+      <div class="grid12" id="grid12">
+        <div class="dg">
+          <div class="group-title">Typ</div>
+          <div class="dg-cells">
+            <div class="cell"><label>1</label><input inputmode="numeric" maxlength="1" class="digit" id="e0" autocomplete="off"></div>
+            <div class="cell"><label>2</label><input inputmode="numeric" maxlength="1" class="digit" id="e1" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="dg">
+          <div class="group-title">Stát</div>
+          <div class="dg-cells">
+            <div class="cell"><label>3</label><input inputmode="numeric" maxlength="1" class="digit" id="e2" autocomplete="off"></div>
+            <div class="cell"><label>4</label><input inputmode="numeric" maxlength="1" class="digit" id="e3" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="dg">
+          <div class="group-title">Dopl.</div>
+          <div class="dg-cells">
+            <div class="cell"><label>5</label><input inputmode="numeric" maxlength="1" class="digit" id="e4" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="dg">
+          <div class="group-title">Označení</div>
+          <div class="dg-cells">
+            <div class="cell"><label>6</label><input inputmode="numeric" maxlength="1" class="digit" id="e5" autocomplete="off"></div>
+            <div class="cell"><label>7</label><input inputmode="numeric" maxlength="1" class="digit" id="e6" autocomplete="off"></div>
+            <div class="cell"><label>8</label><input inputmode="numeric" maxlength="1" class="digit" id="e7" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="dg">
+          <div class="group-title">&nbsp;</div>
+          <div class="dg-cells">
+            <div class="cell"><label>9</label><input inputmode="numeric" maxlength="1" class="digit" id="e8" autocomplete="off"></div>
+            <div class="cell"><label>10</label><input inputmode="numeric" maxlength="1" class="digit" id="e9" autocomplete="off"></div>
+            <div class="cell"><label>11</label><input inputmode="numeric" maxlength="1" class="digit" id="e10" autocomplete="off"></div>
+          </div>
+        </div>
+        <div class="sepcol" aria-hidden="true"><div class="dash">–</div></div>
+        <div class="cell"><label>Kontr.</label><input inputmode="numeric" maxlength="1" class="digit" id="e11" autocomplete="off"></div>
+      </div>
+      <div class="btns">
+        <button id="btnCalc12">Spočítat</button>
+        <button id="btnClear12" class="ghost">Vymazat</button>
+        <button id="btnEx12a" class="ghost" title="94 54 1 471 032-3">Příklad: el. jednotka</button>
+        <button id="btnEx12b" class="ghost" title="91 54 7 151 001-5">Příklad: el. lok.</button>
+        <button id="btnEx12c" class="ghost" title="70 80 8694 002-8">Příklad: osobní vůz</button>
+        <label class="toggle" title="Přepnout světlý režim">
+          <input type="checkbox" id="themeToggle">
+          <span>Světlý režim</span>
+        </label>
+        <span class="chips" id="stats12"></span>
+      </div>
+      <div class="hint">Tipy: vyberte typ a stát z nabídek výše, nebo pište číslice přímo. <b>x</b> = neznámé. Funguje pro hnací vozidla (9x), osobní vozy (5x–7x) i nákladní vagóny. Vložit lze celý řetězec jako <code>94541471032-3</code>.</div>
+    </section>
+
+    <section class="card results" id="results12" hidden>
+      <div class="flex">
+        <div>
+          <h3>Výsledky (12místný UIC)</h3>
+          <span class="count" id="count12"></span>
+        </div>
+        <div class="row-actions">
+          <button id="btnCsv12" class="ghost" disabled>Stáhnout CSV</button>
+          <button id="btnTxt12" class="ghost" disabled>Stáhnout TXT</button>
+        </div>
+      </div>
+      <div id="messages12"></div>
+      <div class="sep"></div>
+      <table class="table" id="table12">
+        <thead>
+          <tr><th>#</th><th>UIC 12místný</th><th>Typ</th><th>Stát</th><th>Akce</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+
+
+  </div>
+
+  <script>
+    const sanitizeChar = (ch) => {
+      if (ch === undefined || ch === null) return '';
+      ch = String(ch);
+      if (ch === ' ') return ''; // mezera = neznámé
+      ch = ch.trim();
+      if (/^[0-9]$/.test(ch)) return ch;
+      if (/^[xX]$/.test(ch)) return 'x';
+      return ''; // vše ostatní = neznámé
+    };
+
+    function sumDigits(n) { return (n>=10) ? (1 + (n-10)) : n; }
+
+    function computeCheckDigit(baseDigits) {
+      let sum = 0;
+      for (let i = 0; i < 6; i++) {
+        const d = baseDigits[i];
+        const mul = (i % 2 === 0) ? 1 : 2; // 1st,3rd,5th *1; 2nd,4th,6th *2
+        sum += sumDigits(d * mul);
+      }
+      const mod = sum % 10;
+      return (mod === 0) ? 0 : (10 - mod);
+    }
+
+    function timestampMMDD_HHMM() {
+      const d = new Date();
+      const pad = (n)=>String(n).padStart(2,'0');
+      return `${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}`;
+    }
+    function downloadFile(filename, content, mime) {
+      const blob = new Blob([content], { type: mime });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }
+
+    // téma – načtení/zápis
+    const THEME_KEY = 'uic-theme';
+    function applyTheme(theme) {
+      const root = document.documentElement;
+      if (theme === 'light') { root.classList.add('theme-light'); themeToggle.checked = true; }
+      else { root.classList.remove('theme-light'); themeToggle.checked = false; }
+      localStorage.setItem(THEME_KEY, theme);
+    }
+    themeToggle.addEventListener('change', () => {
+      applyTheme(themeToggle.checked ? 'light' : 'dark');
+    });
+    const savedTheme = localStorage.getItem(THEME_KEY) || 'dark';
+    applyTheme(savedTheme);
+
+    // ===== 12-digit UIC/TSI =====
+    const inputs12      = [...document.querySelectorAll('#grid12 input.digit')];
+    const btnCalc12     = document.getElementById('btnCalc12');
+    const btnClear12    = document.getElementById('btnClear12');
+    const btnEx12a      = document.getElementById('btnEx12a');
+    const btnEx12b      = document.getElementById('btnEx12b');
+    const btnEx12c      = document.getElementById('btnEx12c');
+    const stats12       = document.getElementById('stats12');
+    const resultsCard12 = document.getElementById('results12');
+    const tableBody12   = document.querySelector('#table12 tbody');
+    const countEl12     = document.getElementById('count12');
+    const messages12    = document.getElementById('messages12');
+    const btnCsv12      = document.getElementById('btnCsv12');
+    const btnTxt12      = document.getElementById('btnTxt12');
+    let lastSolutions12 = [];
+
+    // UIC type codes
+    // 90-99: Tractive stock (UIC 438-3 / ERA CR OPE TSI, rev. 22.01.2012)
+    // 50-79: Passenger coaches (UIC 438-1)
+    // 00-49, 80-89: Freight wagons & special (UIC 438-2)
+    const UIC_TYPES = {
+      // Passenger coaches (UIC 438-1) - digit 1: 5-7
+      50:'Osobní vůz, vnitrostátní, bez klimatizace',
+      51:'Osobní vůz, vnitrostátní, s klimatizací',
+      52:'Osobní vůz, vnitrostátní, jiný rozchod',
+      53:'Osobní vůz, vnitrostátní, proměnný rozchod',
+      55:'Osobní vůz, vnitrostátní, služební/zavazadlový',
+      56:'Osobní vůz, polopřívěs',
+      60:'Osobní vůz, RIC, bez klimatizace',
+      61:'Osobní vůz, RIC, s klimatizací',
+      70:'Osobní vůz, vnitrostátní s přetlakem, bez klimatizace',
+      71:'Osobní vůz, vnitrostátní s přetlakem, s klimatizací',
+      73:'Osobní vůz, RIC s přetlakem, s klimatizací',
+      // Tractive stock (UIC 438-3 / ERA CR OPE TSI)
+      90:'Ostatní (jinak nezařazené hn. vozidlo, např. parní lok.)',
+      91:'Elektrická lokomotiva',
+      92:'Dieselová lokomotiva',
+      93:'Elektrická jednotka – vysokorychlostní [hn. vůz / přívěs]',
+      94:'Elektrická jednotka [hn. vůz / přívěs]',
+      95:'Dieselová jednotka [hn. vůz / přívěs]',
+      96:'Specializovaný přívěsný vůz',
+      97:'Elektrický posunovač',
+      98:'Dieselový posunovač',
+      99:'Speciální vozidlo (např. služební hn. vozidlo)'
+    };
+    const VALID_TYPE_CODES = Object.keys(UIC_TYPES).map(Number);
+
+    // UIC country codes (source: UIC 920-14, 2024-03-13)
+    const UIC_COUNTRIES = {
+      10:'Finsko (FI)',20:'Rusko (RU)',21:'Bělorusko (BY)',22:'Ukrajina (UA)',
+      23:'Moldavsko (MD)',24:'Litva (LT)',25:'Lotyšsko (LV)',26:'Estonsko (EE)',
+      27:'Kazachstán (KZ)',28:'Gruzie (GE)',29:'Uzbekistán (UZ)',
+      30:'KLDR (KP)',31:'Mongolsko (MN)',32:'Vietnam (VN)',33:'Čína (CN)',34:'Laos (LA)',
+      40:'Kuba (CU)',41:'Albánie (AL)',42:'Japonsko (JP)',
+      44:'Bosna a Herc.–RS (BA)',49:'Bosna a Hercegovina (BA)',50:'Bosna a Herc.–Fed. (BA)',
+      51:'Polsko (PL)',52:'Bulharsko (BG)',53:'Rumunsko (RO)',54:'Česko (CZ)',
+      55:'Maďarsko (HU)',56:'Slovensko (SK)',57:'Ázerbájdžán (AZ)',58:'Arménie (AM)',
+      59:'Kyrgyzstán (KG)',60:'Irsko (IE)',61:'Jižní Korea (KR)',62:'Černá Hora (ME)',
+      65:'Severní Makedonie (MK)',66:'Tádžikistán (TJ)',67:'Turkmenistán (TM)',68:'Afghánistán (AF)',
+      70:'Velká Británie (GB)',71:'Španělsko (ES)',72:'Srbsko (RS)',73:'Řecko (GR)',
+      74:'Švédsko (SE)',75:'Turecko (TR)',76:'Norsko (NO)',78:'Chorvatsko (HR)',79:'Slovinsko (SI)',
+      80:'Německo (DE)',81:'Rakousko (AT)',82:'Lucembursko (LU)',83:'Itálie (IT)',
+      84:'Nizozemsko (NL)',85:'Švýcarsko (CH)',86:'Dánsko (DK)',87:'Francie (FR)',
+      88:'Belgie (BE)',89:'Tanzanie (TZ)',
+      90:'Egypt (EG)',91:'Tunisko (TN)',92:'Alžírsko (DZ)',93:'Maroko (MA)',
+      94:'Portugalsko (PT)',95:'Izrael (IL)',96:'Írán (IR)',97:'Sýrie (SY)',98:'Libanon (LB)',99:'Irák (IQ)'
+    };
+    const VALID_COUNTRY_CODES = Object.keys(UIC_COUNTRIES).map(Number);
+
+    // --- Type picker (with optgroups) ---
+    const typePicker12 = document.getElementById('typePicker12');
+    const typeLabel12 = document.getElementById('typeLabel12');
+    const typeGroups = [
+      { label: 'Hnací vozidla (UIC 438-3)', codes: VALID_TYPE_CODES.filter(c => c >= 90) },
+      { label: 'Osobní vozy (UIC 438-1)', codes: VALID_TYPE_CODES.filter(c => c >= 50 && c < 80) },
+    ];
+    typeGroups.forEach(g => {
+      const og = document.createElement('optgroup');
+      og.label = g.label;
+      g.codes.sort((a,b) => a - b).forEach(code => {
+        const opt = document.createElement('option');
+        opt.value = String(code);
+        opt.textContent = `${code} – ${UIC_TYPES[code]}`;
+        og.appendChild(opt);
+      });
+      typePicker12.appendChild(og);
+    });
+
+    typePicker12.addEventListener('change', () => {
+      const v = typePicker12.value;
+      if (v.length === 2) {
+        inputs12[0].value = v[0];
+        inputs12[1].value = v[1];
+      } else {
+        inputs12[0].value = '';
+        inputs12[1].value = '';
+      }
+      updateStats12();
+    });
+
+    function updateTypeDisplay() {
+      const arr = digitsFromUI12();
+      const d0 = arr[0], d1 = arr[1];
+      if (d0 === '' || d0 === 'x' || d1 === '' || d1 === 'x') {
+        typeLabel12.textContent = '';
+        typeLabel12.className = 'picker-feedback';
+        typePicker12.value = '';
+        return;
+      }
+      const code = Number(d0) * 10 + Number(d1);
+      const name = UIC_TYPES[code];
+      if (name) {
+        typeLabel12.textContent = name;
+        typeLabel12.className = 'picker-feedback ok';
+      } else if (code >= 0 && code <= 49) {
+        typeLabel12.textContent = `Nákladní vagón (${code}) – UIC 438-2`;
+        typeLabel12.className = 'picker-feedback ok';
+      } else if (code >= 50 && code <= 79) {
+        typeLabel12.textContent = `Osobní vůz (${code}) – UIC 438-1`;
+        typeLabel12.className = 'picker-feedback ok';
+      } else if (code >= 80 && code <= 89) {
+        typeLabel12.textContent = `Speciální / služební vozidlo (${code})`;
+        typeLabel12.className = 'picker-feedback ok';
+      } else {
+        typeLabel12.textContent = `Kód ${code} není rozpoznán`;
+        typeLabel12.className = 'picker-feedback invalid';
+      }
+      typePicker12.value = String(code);
+    }
+
+    // --- Country picker ---
+    const countryPicker12 = document.getElementById('countryPicker12');
+    const countryLabel12 = document.getElementById('countryLabel12');
+    VALID_COUNTRY_CODES.sort((a,b) => a - b).forEach(code => {
+      const opt = document.createElement('option');
+      opt.value = String(code).padStart(2, '0');
+      opt.textContent = `${String(code).padStart(2, '0')} – ${UIC_COUNTRIES[code]}`;
+      countryPicker12.appendChild(opt);
+    });
+
+    countryPicker12.addEventListener('change', () => {
+      const v = countryPicker12.value;
+      if (v.length === 2) {
+        inputs12[2].value = v[0];
+        inputs12[3].value = v[1];
+      } else {
+        inputs12[2].value = '';
+        inputs12[3].value = '';
+      }
+      updateStats12();
+    });
+
+    function updateCountryDisplay() {
+      const arr = digitsFromUI12();
+      const d2 = arr[2], d3 = arr[3];
+      if (d2 === '' || d2 === 'x' || d3 === '' || d3 === 'x') {
+        countryLabel12.textContent = '';
+        countryLabel12.className = 'picker-feedback';
+        countryPicker12.value = '';
+        return;
+      }
+      const code = Number(d2) * 10 + Number(d3);
+      const name = UIC_COUNTRIES[code];
+      if (name) {
+        countryLabel12.textContent = name;
+        countryLabel12.className = 'picker-feedback ok';
+      } else {
+        countryLabel12.textContent = `Kód ${String(code).padStart(2,'0')} není platný UIC kód státu`;
+        countryLabel12.className = 'picker-feedback invalid';
+      }
+      countryPicker12.value = String(code).padStart(2, '0');
+    }
+
+    // Combined display update
+    function updatePickerDisplays() {
+      updateTypeDisplay();
+      updateCountryDisplay();
+    }
+
+    function computeCheck12(baseDigits) {
+      let sum = 0;
+      for (let i = 0; i < 11; i++) {
+        const mul = (i % 2 === 0) ? 2 : 1; // 12-digit UIC: odd positions ×2
+        sum += sumDigits(baseDigits[i] * mul);
+      }
+      const mod = sum % 10;
+      return (mod === 0) ? 0 : (10 - mod);
+    }
+
+    function formatUIC12(baseDigits, check) {
+      const d = baseDigits.join('');
+      return `${d.slice(0,2)}\u00A0${d.slice(2,4)}\u00A0${d[4]}\u00A0${d.slice(5,8)}\u00A0${d.slice(8,11)}-${check}`;
+    }
+
+    function digitsFromUI12() { return inputs12.map(i => sanitizeChar(i.value)); }
+
+    function countKnown12(arr) { return arr.filter(v => v !== '' && v !== 'x').length; }
+
+    function updateStats12() {
+      const arr = digitsFromUI12();
+      const known = countKnown12(arr);
+      stats12.innerHTML = '';
+      const chip = (t) => { const el = document.createElement('span'); el.className = 'chip'; el.textContent = t; stats12.appendChild(el); };
+      chip(`Vyplněno: ${known}/12`);
+      const ok = known >= 5 && !arr.slice(0,11).every(v => v === 'x' || v === '');
+      btnCalc12.disabled = !ok;
+      if (!ok) { btnCsv12.disabled = true; btnTxt12.disabled = true; }
+      updatePickerDisplays();
+    }
+
+    function solve12(arr) {
+      const base   = arr.slice(0, 11);
+      const chkIn  = arr[11];
+      const unknownIdx = [];
+      const fixed  = [];
+      for (let i = 0; i < 11; i++) {
+        if (base[i] === '' || base[i] === 'x') unknownIdx.push(i);
+        else fixed[i] = Number(base[i]);
+      }
+      let wantCheck = (chkIn === '' || chkIn === 'x') ? null : Number(chkIn);
+
+      // Type code constraint (indices 0,1)
+      const t0unknown = unknownIdx.includes(0);
+      const t1unknown = unknownIdx.includes(1);
+      let typeWarning = null;
+
+      // Country code constraint (indices 2,3)
+      const cc2unknown = unknownIdx.includes(2);
+      const cc3unknown = unknownIdx.includes(3);
+      let countryWarning = null;
+      if (!cc2unknown && !cc3unknown && fixed[2] !== undefined && fixed[3] !== undefined) {
+        const cc = fixed[2] * 10 + fixed[3];
+        if (!UIC_COUNTRIES[cc]) {
+          countryWarning = `Kód státu ${String(cc).padStart(2,'0')} není platný UIC kód. Výpočet proběhne, ale kód neodpovídá žádnému státu.`;
+        }
+      }
+
+      // Informational: compute 7-digit check if positions 6-11 are known
+      const base7known = [5,6,7,8,9,10].every(i => fixed[i] !== undefined);
+      let check7info = null;
+      if (base7known) {
+        const base7 = [5,6,7,8,9,10].map(i => fixed[i]);
+        check7info = computeCheckDigit(base7);
+      }
+
+      const solutions = [];
+      const maxComb = 10 ** unknownIdx.length;
+      if (maxComb > 100000) throw new Error('Příliš mnoho kombinací (více než 100k). Zpřesněte zadání.');
+
+      // Helpers for paired-code lookup
+      function validCodesForPair(lookupTable, validCodes, idx0, idx1, i0unknown, i1unknown) {
+        // Returns handler function or null if not applicable at this idx
+        return function handler(idx, pos, current, skipSet) {
+          // Both digits unknown – iterate valid codes as pairs
+          if (idx === idx0 && i1unknown) {
+            const skip = new Set(skipSet || []);
+            skip.add(idx1);
+            for (const code of validCodes) {
+              const next = current.slice();
+              next[idx0] = Math.floor(code / 10);
+              next[idx1] = code % 10;
+              doRecurse(pos + 1, next, skip);
+            }
+            return true;
+          }
+          // Only first digit unknown, second fixed
+          if (idx === idx0 && !i1unknown) {
+            const d1 = fixed[idx1];
+            for (let d = 0; d <= 9; d++) {
+              if (!lookupTable[d * 10 + d1]) continue;
+              const next = current.slice();
+              next[idx0] = d;
+              doRecurse(pos + 1, next, skipSet);
+            }
+            return true;
+          }
+          // Only second digit unknown, first fixed
+          if (idx === idx1 && !i0unknown) {
+            const d0 = fixed[idx0];
+            for (let d = 0; d <= 9; d++) {
+              if (!lookupTable[d0 * 10 + d]) continue;
+              const next = current.slice();
+              next[idx1] = d;
+              doRecurse(pos + 1, next, skipSet);
+            }
+            return true;
+          }
+          return false;
+        };
+      }
+
+      const handleType = (t0unknown || t1unknown)
+        ? validCodesForPair(UIC_TYPES, VALID_TYPE_CODES, 0, 1, t0unknown, t1unknown) : null;
+      const handleCountry = (cc2unknown || cc3unknown)
+        ? validCodesForPair(UIC_COUNTRIES, VALID_COUNTRY_CODES, 2, 3, cc2unknown, cc3unknown) : null;
+
+      function doRecurse(pos, current, skipSet) {
+        while (pos < unknownIdx.length && skipSet && skipSet.has(unknownIdx[pos])) pos++;
+
+        if (pos >= unknownIdx.length) {
+          const bd = Array.from({length:11}, (_, i) => fixed[i] ?? current[i] ?? 0);
+          const check = computeCheck12(bd);
+          if (wantCheck === null || check === wantCheck) solutions.push({ base: bd, check });
+          return;
+        }
+        const idx = unknownIdx[pos];
+
+        // Try type code handler
+        if (handleType && handleType(idx, pos, current, skipSet)) return;
+        // Try country code handler
+        if (handleCountry && handleCountry(idx, pos, current, skipSet)) return;
+
+        // Default: all digits 0-9
+        for (let d = 0; d <= 9; d++) {
+          const next = current.slice();
+          next[idx] = d;
+          doRecurse(pos + 1, next, skipSet);
+        }
+      }
+
+      if (unknownIdx.length === 0) {
+        const bd = base.map(Number);
+        const check = computeCheck12(bd);
+        if (wantCheck === null || check === wantCheck) solutions.push({ base: bd, check });
+      } else {
+        doRecurse(0, [], null);
+      }
+      return { solutions, check7info, countryWarning, typeWarning };
+    }
+
+    function renderResults12({ solutions, check7info, countryWarning, typeWarning }) {
+      lastSolutions12 = solutions.slice();
+      resultsCard12.hidden = false;
+      messages12.innerHTML = '';
+      tableBody12.innerHTML = '';
+      countEl12.textContent = `${solutions.length} výsledků`;
+      const has = solutions.length > 0;
+      btnCsv12.disabled = !has;
+      btnTxt12.disabled = !has;
+
+      // Show type warning
+      if (typeWarning) {
+        const w = document.createElement('div'); w.className = 'msg warn';
+        w.textContent = typeWarning;
+        messages12.appendChild(w);
+      }
+
+      // Show country warning
+      if (countryWarning) {
+        const w = document.createElement('div'); w.className = 'msg warn';
+        w.textContent = countryWarning;
+        messages12.appendChild(w);
+      }
+
+      // Show 7-digit check info (informational only)
+      if (check7info !== null && has) {
+        const checks12 = new Set(solutions.map(s => s.check));
+        if (checks12.size === 1) {
+          const c12 = [...checks12][0];
+          const info = document.createElement('div');
+          if (c12 === check7info) {
+            info.className = 'msg ok';
+            info.textContent = `Kontrolní číslice ${c12} — shodná pro 7místný i 12místný kód.`;
+          } else {
+            info.className = 'msg ok';
+            info.textContent = `Kontrolní číslice 12místného kódu: ${c12}. Pozn.: 7místný kód (${solutions[0].base.slice(5).join('')}) má samostatnou kontrolní číslici ${check7info}.`;
+          }
+          messages12.appendChild(info);
+        }
+      }
+
+      if (!has) { messages12.innerHTML += `<div class="msg err">Nenalezeny žádné kombinace. Zkontrolujte vstup.</div>`; return; }
+      if (solutions.length > 5000) {
+        const w = document.createElement('div'); w.className = 'msg warn';
+        w.textContent = 'Velký počet výsledků – zobrazuji pouze prvních 5000.';
+        messages12.appendChild(w);
+      }
+      solutions.slice(0, 5000).forEach((s, i) => {
+        const formatted = formatUIC12(s.base, s.check);
+        const tc = s.base[0] * 10 + s.base[1];
+        const typeName = UIC_TYPES[tc] || (tc < 50 ? 'Nákladní vagón' : tc < 80 ? 'Osobní vůz' : tc < 90 ? 'Speciální' : '');
+        const cc = s.base[2] * 10 + s.base[3];
+        const country = UIC_COUNTRIES[cc] || '';
+        const tr = document.createElement('tr');
+        const td1 = document.createElement('td'); td1.textContent = String(i+1);
+        const td2 = document.createElement('td'); td2.textContent = formatted;
+        const td3 = document.createElement('td'); td3.textContent = typeName; td3.style.fontSize = '12px'; td3.style.color = 'var(--muted)';
+        const td4 = document.createElement('td'); td4.textContent = country; td4.style.fontSize = '12px'; td4.style.color = 'var(--muted)';
+        const td5 = document.createElement('td');
+        td5.innerHTML = `<div class="row-actions"><button class="ghost" data-copy="${formatted}">Kopírovat</button></div>`;
+        tr.append(td1, td2, td3, td4, td5);
+        tableBody12.appendChild(tr);
+      });
+      tableBody12.querySelectorAll('button[data-copy]').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const text = e.currentTarget.getAttribute('data-copy');
+          try { await navigator.clipboard.writeText(text); e.currentTarget.textContent = 'Zkopírováno ✓'; setTimeout(() => e.currentTarget.textContent = 'Kopírovat', 1200); } catch { alert(text); }
+        });
+      });
+    }
+
+    function calculate12(silent = false) {
+      const arr = digitsFromUI12();
+      if (countKnown12(arr) < 5) { if (!silent) alert('Vyplňte alespoň 5 políček.'); return; }
+      try { renderResults12(solve12(arr)); }
+      catch (err) {
+        resultsCard12.hidden = false;
+        messages12.innerHTML = `<div class="msg err">${err.message}</div>`;
+        tableBody12.innerHTML = ''; countEl12.textContent = '';
+        btnCsv12.disabled = true; btnTxt12.disabled = true;
+      }
+    }
+
+    function tryParsePaste12(text) {
+      if (!text) return false;
+      let t = String(text).trim().replace(/[^0-9xX]/g, '');
+      if (t.length < 11 || t.length > 12) return false;
+      const arr = new Array(12).fill('');
+      for (let i = 0; i < Math.min(11, t.length); i++) arr[i] = sanitizeChar(t[i]);
+      if (t.length === 12) arr[11] = sanitizeChar(t[11]);
+      inputs12.forEach((inp, i) => inp.value = arr[i]);
+      updateStats12();
+      (inputs12.find(i => !i.value) || inputs12[11]).focus();
+      return true;
+    }
+
+    // Export 12-digit
+    function exportCSV12() {
+      const arr = digitsFromUI12();
+      const lines = ['index,UIC12,base_digits,check_digit'];
+      lastSolutions12.forEach((s, i) => {
+        const uic = formatUIC12(s.base, s.check).replace(/\u00A0/g, ' ');
+        lines.push(`${i+1},"${uic}",${s.base.join('')},${s.check}`);
+      });
+      const pat = arr.slice(0,11).map(c=>c||'x').join('') + '-' + (arr[11]||'x');
+      downloadFile(`UIC12_${pat}_${timestampMMDD_HHMM()}.csv`, lines.join('\n'), 'text/csv;charset=utf-8');
+    }
+    function exportTXT12() {
+      const arr = digitsFromUI12();
+      const pat = arr.slice(0,11).map(c=>c||'x').join('') + '-' + (arr[11]||'x');
+      downloadFile(`UIC12_${pat}_${timestampMMDD_HHMM()}.txt`, lastSolutions12.map(s => formatUIC12(s.base, s.check)).join('\n'), 'text/plain;charset=utf-8');
+    }
+    btnCsv12.addEventListener('click', exportCSV12);
+    btnTxt12.addEventListener('click', exportTXT12);
+
+    // Navigation for 12-digit inputs
+    inputs12.forEach((input, idx) => {
+      input.addEventListener('focus', (e) => { e.target.select(); });
+      input.addEventListener('input', (e) => {
+        const v = e.target.value;
+        if (v && v.length > 1) { if (tryParsePaste12(v)) return; }
+        let c = sanitizeChar(v.slice(-1));
+        e.target.value = c;
+        if (c) { const next = inputs12[idx+1]; if (next) next.focus(); }
+        updateStats12();
+      });
+      input.addEventListener('keydown', (e) => {
+        if (e.key === ' ') { e.preventDefault(); e.currentTarget.value = ''; const next = inputs12[idx+1]; if (next) next.focus(); updateStats12(); return; }
+        if (e.key === 'Backspace' && !e.currentTarget.value) { const prev = inputs12[idx-1]; if (prev) { prev.focus(); prev.value = ''; e.preventDefault(); updateStats12(); } }
+        if (e.key === 'ArrowLeft')  { const prev = inputs12[idx-1]; if (prev) { prev.focus(); e.preventDefault(); } }
+        if (e.key === 'ArrowRight') { const next = inputs12[idx+1]; if (next) { next.focus(); e.preventDefault(); } }
+        if (e.key === 'Enter') { calculate12(); }
+      });
+      input.addEventListener('paste', (e) => {
+        const text = (e.clipboardData || window.clipboardData).getData('text');
+        if (tryParsePaste12(text)) e.preventDefault();
+      });
+    });
+
+    btnCalc12.addEventListener('click', () => calculate12(false));
+    btnClear12.addEventListener('click', () => {
+      inputs12.forEach(i => i.value = '');
+      resultsCard12.hidden = true; lastSolutions12 = [];
+      btnCsv12.disabled = true; btnTxt12.disabled = true;
+      inputs12[0].focus(); updateStats12();
+    });
+    btnEx12a.addEventListener('click', () => { // 94 54 1 471 032-3
+      ['9','4','5','4','1','4','7','1','0','3','2','3'].forEach((v,i) => inputs12[i].value = v);
+      updateStats12(); inputs12[0].focus();
+    });
+    btnEx12b.addEventListener('click', () => { // 91 54 7 151 001-5
+      ['9','1','5','4','7','1','5','1','0','0','1','5'].forEach((v,i) => inputs12[i].value = v);
+      updateStats12(); inputs12[0].focus();
+    });
+    btnEx12c.addEventListener('click', () => { // 70 80 8694 002-8
+      ['7','0','8','0','8','6','9','4','0','0','2','8'].forEach((v,i) => inputs12[i].value = v);
+      updateStats12(); inputs12[0].focus();
+    });
+
+    updateStats12();
+  </script>
+</body>
+</html>
