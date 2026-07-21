@@ -127,10 +127,15 @@
             max-width: 100%;
             height: auto;
             max-height: 180px;
-            transition: transform 0.3s;
-            transform-origin: 50% 50%; /* SVG elements default to 0 0, which breaks the mirror flip */
         }
-        #radar-img.mirrored { transform: scaleX(-1); }
+        /* flip the drawing inside the SVG; outer-element transforms on <svg>
+           have inconsistent origin/box behavior across browsers */
+        #radar-img path {
+            transform-box: view-box;
+            transform-origin: 50% 50%;
+            transition: transform 0.3s;
+        }
+        #radar-img.mirrored path { transform: scaleX(-1); }
 
         .radar-labels {
             display: flex;
