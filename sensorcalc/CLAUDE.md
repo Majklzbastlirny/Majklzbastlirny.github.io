@@ -104,7 +104,7 @@ There's no framework; validation is a throwaway Node harness. Pattern:
 
 ```bash
 # 1) extract the script and syntax-check
-python3 -c "import re; open('script.js','w').write(re.search(r'<script>(.*?)</script>', open('sensor-calc.html').read(), re.S).group(1))"
+python3 -c "import re; open('script.js','w').write(re.search(r'<script>(.*?)</script>', open('index.html').read(), re.S).group(1))"
 node --check script.js
 
 # 2) to unit-test the maths, cut the script just before the first DOM function

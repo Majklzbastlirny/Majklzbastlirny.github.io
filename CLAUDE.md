@@ -53,7 +53,7 @@ sensorcalc/           temperature sensor calculator (has its own CLAUDE.md + val
 9. **Degrees, ohms, mV**: these are measurement tools. Don't round for cosmetics; follow each
    tool's existing formatting rules. In `sensorcalc`, accuracy is validated against reference
    tables — read `sensorcalc/CLAUDE.md` before touching any maths there and re-run
-   `node validate.mjs` (95 checks) after.
+   `node validate.mjs` after (must be 0 failures; the check count grows with the suite).
 
 ## Adding a new tool — checklist
 
@@ -92,6 +92,9 @@ sensorcalc/           temperature sensor calculator (has its own CLAUDE.md + val
   Export as TXT: tab-separated, UTF-8 BOM, summary columns then raw columns; exports the live
   unsaved session if history is empty.
 - Radar: inline SVG `#radar-img`; mirror = CSS class toggling `scaleX(-1)` on the inner `path`.
+- The Pitch and Track Slope sections share the triangle legend via the same i18n keys
+  (`legendNeg`/`legendPos`) — edit the strings once and both sections update. Slope also
+  carries the cab sign convention (`slopeCabNote`: Cab A lower than Cab B = negative gradient).
 
 ### uic7 / uic12
 Czech UI. Luhn-style UIC check-digit maths. They cross-link each other
@@ -117,6 +120,9 @@ relative α = 1) — higher rank must never be overwritten by lower. All-null or
 Has its own `CLAUDE.md` (read it) and `validate.mjs` regression harness. Physics validated
 against IEC 60751 / NIST ITS-90. Known fixed bugs guarded by tests: TC mV/µV scale mixing,
 RTD `-1.11e-14` display dust, KTY84 reference-temperature anchoring (1000 Ω at **100 °C**).
+Every family has `hard()` physical limits: extrapolate+warn between `range` and `hard`,
+refuse with a bad flag beyond `hard` (thermocouples: hard == range, full ITS-90 spans stay
+usable — Type K to 1372 °C, B to 1820 °C). New families must define `hard` (validator enforces).
 
 ## Git / deploy
 
