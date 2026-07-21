@@ -623,6 +623,7 @@
             </label>
             <button class="btn btn-save" id="save-btn" onclick="saveToHistory()" data-i18n="saveToHistory" style="display:none">Save to History</button>
             <button class="btn btn-export" id="export-btn" onclick="exportAsImage()" data-i18n="exportAsImage">Export as Image</button>
+            <button class="btn btn-export" id="export-txt-btn" onclick="exportAsText()" data-i18n="exportAsTxt">Export as TXT</button>
             <button class="btn btn-clear" onclick="clearAll()" data-i18n="clearAll">Clear All</button>
         </div>
 
@@ -789,6 +790,8 @@
                 autoSave: 'Auto-save',
                 saveToHistory: 'Save to History',
                 exportAsImage: 'Export as Image',
+                exportAsTxt: 'Export as TXT',
+                exportNoData: 'Nothing to export – no history and no current inputs.',
                 historyTitle: 'History',
                 clearHistory: 'Clear History',
                 hColDatetime: 'Datetime',
@@ -838,6 +841,8 @@
                 autoSave: 'Automatick\u00E9 ukl\u00E1d\u00E1n\u00ED',
                 saveToHistory: 'Ulo\u017Eit do historie',
                 exportAsImage: 'Exportovat jako obr\u00E1zek',
+                exportAsTxt: 'Exportovat jako TXT',
+                exportNoData: 'Nen\u00ED co exportovat \u2013 \u017E\u00E1dn\u00E1 historie ani aktu\u00E1ln\u00ED data.',
                 historyTitle: 'Historie',
                 clearHistory: 'Vymazat historii',
                 hColDatetime: 'Datum a \u010Das',
@@ -1196,13 +1201,10 @@
             document.getElementById('save-btn').style.display = on ? 'none' : '';
         }
 
-        function persistRecord() {
-            if (currentSessionId === null) currentSessionId = Date.now();
-            const history = loadHistory();
-            const idx = history.findIndex(r => r.id === currentSessionId);
-            const record = {
-                id:           currentSessionId,
-                dt:           idx >= 0 ? history[idx].dt : new Date().toISOString(),
+        function collectRecord(id, dt) {
+            return {
+                id:           id,
+                dt:           dt,
                 trainId:      document.getElementById('train-id').value.trim(),
                 radarSw:      document.getElementById('radar-sw').value.trim(),
                 pitchRounded: lastPitchData ? lastPitchData.rounded : null,
@@ -1210,7 +1212,24 @@
                 tiltMean:     lastTiltData  ? lastTiltData.mean     : null,
                 slopeMean:    lastSlopeData ? lastSlopeData.mean    : null,
                 slopeResult:  lastSlopeData ? lastSlopeData.result  : null,
+                // raw field values as entered; pitch with the triangle sign resolved
+                rawPitch: [1, 2, 3].map(i => {
+                    const v = parsePitchV2(i);
+                    return isNaN(v) ? '' : (v < 0 ? '' : '+') + v;
+                }),
+                rawTilt:  [1, 2, 3].map(i => document.getElementById('tilt' + i).value.trim()),
+                rawSlope: [1, 2, 3, 4, 5, 6].map(i => document.getElementById('slope' + i).value.trim()),
             };
+        }
+
+        function persistRecord() {
+            if (currentSessionId === null) currentSessionId = Date.now();
+            const history = loadHistory();
+            const idx = history.findIndex(r => r.id === currentSessionId);
+            const record = collectRecord(
+                currentSessionId,
+                idx >= 0 ? history[idx].dt : new Date().toISOString()
+            );
             if (idx >= 0) history[idx] = record;
             else history.unshift(record);
             localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
@@ -1273,6 +1292,67 @@
                     '<td><button class="clear-icon" style="width:24px;height:24px;font-size:0.75rem;line-height:24px;" onclick="deleteHistoryEntry(' + r.id + ')">\u2715</button></td>';
                 tbody.appendChild(tr);
             });
+        }
+
+        // ── Export as TXT ──
+        // One row per history record: summary columns (same as the history
+        // table) first, then the raw values the user typed into each field.
+        function exportAsText() {
+            const rows = loadHistory();
+
+            // With auto-save off and nothing saved yet, still export the
+            // current inputs so the button never silently loses data.
+            if (currentSessionId === null) {
+                const live = collectRecord(0, new Date().toISOString());
+                const hasData = live.trainId || live.radarSw ||
+                    live.rawPitch.some(v => v !== '') ||
+                    live.rawTilt.some(v => v !== '') ||
+                    live.rawSlope.some(v => v !== '');
+                if (hasData) rows.unshift(live);
+            }
+
+            if (rows.length === 0) {
+                alert(i18n[currentLang].exportNoData);
+                return;
+            }
+
+            const num = (v, dec) => (v !== null && v !== undefined) ? v.toFixed(dec) : '-';
+            const txt = v => (v !== undefined && v !== '') ? v : '-';
+            const arr = (a, n) => {
+                const out = [];
+                for (let i = 0; i < n; i++) out.push(txt(a ? a[i] : undefined));
+                return out;
+            };
+
+            const header = [
+                'Datetime', 'Train ID', 'Radar SW',
+                'Pitch [°]', 'Coeff', 'Tilt [°]', 'Slope [°]', 'Slope x10000',
+                'Raw Pitch 1', 'Raw Pitch 2', 'Raw Pitch 3',
+                'Raw Tilt 1', 'Raw Tilt 2', 'Raw Tilt 3',
+                'Raw Slope 1', 'Raw Slope 2', 'Raw Slope 3',
+                'Raw Slope 4', 'Raw Slope 5', 'Raw Slope 6'
+            ];
+
+            const lines = rows.map(r => [
+                r.dt.replace('T', ' ').substring(0, 16),
+                txt(r.trainId), txt(r.radarSw),
+                num(r.pitchRounded, 2),
+                r.coeff !== null && r.coeff !== undefined ? String(r.coeff) : '-',
+                num(r.tiltMean, 5), num(r.slopeMean, 5), num(r.slopeResult, 2)
+            ].concat(arr(r.rawPitch, 3), arr(r.rawTilt, 3), arr(r.rawSlope, 6)).join('\t'));
+
+            const trainId = document.getElementById('train-id').value.trim() || 'ETCS-Data';
+            const fileName = trainId + '_' + new Date().toISOString().split('T')[0] + '.txt';
+            // prefix a UTF-8 BOM so Notepad/Excel decode the degree signs correctly
+            const content = '\uFEFF' + [header.join('\t')].concat(lines).join('\r\n') + '\r\n';
+
+            const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = fileName;
+            link.click();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
 
         // ── Export as Image ──
