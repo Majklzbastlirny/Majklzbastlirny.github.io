@@ -192,6 +192,21 @@ for (const t of [-30, 0, 40, 85, 150])
 }
 
 // ============================================================
+// Hard limits: every family defines them and they contain the valid range
+// (thermocouples intentionally have hard == range: no extrapolation band)
+// ============================================================
+for (const fam of Object.keys(MODELS)) {
+  const cfg = MODELS[fam];
+  for (const m of cfg.list) {
+    const p = { ...m.p };
+    ok(typeof cfg.hard === "function", `${fam}: hard() limits defined`);
+    if (typeof cfg.hard !== "function") continue;
+    const [lo, hi] = cfg.range(p), [hlo, hhi] = cfg.hard(p);
+    ok(hlo <= lo && hhi >= hi, `${fam}/${m.name}: hard limits [${hlo}, ${hhi}] contain range [${lo}, ${hi}]`);
+  }
+}
+
+// ============================================================
 // Integration: every default model must round-trip through MODELS.fwd/rev
 // ============================================================
 for (const fam of Object.keys(MODELS)) {

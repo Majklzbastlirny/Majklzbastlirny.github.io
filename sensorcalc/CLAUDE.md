@@ -54,6 +54,11 @@ rtd: {
   standard,                                  // reference string (tag + CSV header)
   list: [ { id, name, p:{...}, editable?:[keys], sh?:bool } ],
   range: (p) => [tmin, tmax],                // valid domain in °C
+  hard:  (p) => [lo, hi],                    // physical limits: refuse to compute outside these.
+                                             // range < t < hard → extrapolate + warn flag;
+                                             // beyond hard → no result + bad flag ("2500 °C on a
+                                             // diode" must not print a voltage). TC sets hard ==
+                                             // range because ITS-90 polynomials diverge outside.
   fwd:   (p, t)   => output,                 // temperature → Ω or mV
   rev:   (p, val) => temp,                   // Ω or mV → temperature
   sens?: (p, t)   => dOutput/dT,             // optional analytic; else numeric

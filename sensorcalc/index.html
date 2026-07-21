@@ -410,7 +410,7 @@ const MODELS = {
       {id:"pt2000",name:"Pt2000",p:{R0:2000}},
       {id:"custom",name:"Custom A/B", p:{R0:100,A:3.9083e-3,B:-5.775e-7}, editable:["R0","A","B"]}
     ],
-    range:()=>[RTD.min,RTD.max],
+    range:()=>[RTD.min,RTD.max], hard:()=>[-240,1000],
     fwd:(p,t)=>rtdR(p.R0,t,p), rev:(p,R)=>rtdT(p.R0,R,p),
     extra:(p,t)=>[["R₀ (0 °C)",fmt(p.R0)+" Ω"],["R at 100 °C",fmt(rtdR(p.R0,100,p))+" Ω"]]
   },
@@ -425,7 +425,7 @@ const MODELS = {
       {id:"custom",  name:"Custom β",  p:{R25:10000,B:3950}, editable:["R25","B"]},
       {id:"sh",      name:"Custom S–H",p:{a:1.129241e-3,b:2.341077e-4,c:8.775468e-8,R25:10000}, sh:true, editable:["a","b","c"]}
     ],
-    range:()=>[-40,150],
+    range:()=>[-40,150], hard:()=>[-80,300],
     fwd:(p,t)=> p.a!=null ? ntcR_sh(p.a,p.b,p.c,t) : ntcR_beta(p.R25,p.B,t),
     rev:(p,R)=> p.a!=null ? ntcT_sh(p.a,p.b,p.c,R) : ntcT_beta(p.R25,p.B,R),
     extra:(p,t)=> p.a!=null ? [["R at 25 °C","≈"+fmt(ntcR_sh(p.a,p.b,p.c,25))+" Ω"],["model","Steinhart–Hart"]]
@@ -440,7 +440,7 @@ const MODELS = {
       {id:"kty84",    name:"KTY84-130",p:{Rref:1000,al:6.12e-3, be:1.10e-5, Tref:100}},
       {id:"custom",   name:"Custom",   p:{Rref:2000,al:7.874e-3,be:1.874e-5,Tref:25}, editable:["Rref","al","be","Tref"]}
     ],
-    range:(p)=>p.Tref>=100?[-40,300]:[-50,150],
+    range:(p)=>p.Tref>=100?[-40,300]:[-50,150], hard:(p)=>p.Tref>=100?[-65,400]:[-65,220],
     fwd:(p,t)=>ktyR(p.Rref,p.al,p.be,t,p.Tref), rev:(p,R)=>ktyT(p.Rref,p.al,p.be,R,p.Tref),
     extra:(p,t)=>[["R at "+fmt(p.Tref,0)+" °C",fmt(p.Rref)+" Ω"],["α",p.al.toExponential(3)+" /K"]]
   },
@@ -453,7 +453,7 @@ const MODELS = {
       {id:"schottky",name:"Schottky (BAT54)", p:{V25:250,k:-1.4}, editable:["V25","k"]},
       {id:"custom", name:"Custom",            p:{V25:600,k:-2.0}, editable:["V25","k"]}
     ],
-    range:()=>[-55,150],
+    range:()=>[-55,150], hard:()=>[-80,225],   // junction physics ends here; linear model would go negative
     fwd:(p,t)=>diodeV(p.V25,p.k,t), rev:(p,mv)=>diodeT(p.V25,p.k,mv),
     sens:(p,t)=>p.k,
     extra:(p,t)=>[["Vf at 25 °C",fmt(p.V25)+" mV"],["Vf at 100 °C",fmt(diodeV(p.V25,p.k,100))+" mV"]]
@@ -463,6 +463,7 @@ const MODELS = {
     sensName:"Seebeck dE/dT", sensUnit:"µV/°C", yLog:false, standard:"ITS-90 / IEC 60584-1 · ref 0 °C",
     list:["K","J","T","E","N","R","S","B"].map(k=>({id:k,name:"Type "+k,p:{type:k,cj:0}, editable:["cj"]})),
     range:(p)=>[TC[p.type].min,TC[p.type].max],
+    hard:(p)=>[TC[p.type].min,TC[p.type].max],   // ITS-90 polynomials diverge fast outside — no extrapolation band
     // forward returns mV (incl. cold-junction subtraction); rev expects measured mV at given cj
     fwd:(p,t)=> tcEmf(p.type,t)-tcEmf(p.type,p.cj),
     rev:(p,mv)=> tcTempFromEmf(p.type, mv + tcEmf(p.type,p.cj)),
@@ -614,12 +615,32 @@ function compute(){
 
   const raw=parseFloat($("inVal").value);
   const [tmin,tmax]=cfg.range(p);
+  // hard limits: beyond these the model is physically meaningless — refuse
+  // instead of extrapolating. Between range and hard, extrapolate + warn.
+  const hard = cfg.hard ? cfg.hard(p) : [tmin,tmax];
   let out, t, flagMsg="", flagCls="";
 
   if(!isFinite(raw)){ showOut(null); $("flag").className="flag"; $("curvePt").textContent=""; return; }
 
+  const refuse=(msg)=>{
+    showOut(null);
+    const fl=$("flag"); fl.className="flag show bad"; fl.textContent=msg;
+    setMetric(1, cfg.sensName, "—");
+    setMetric(2, "Valid range", `${fmt(tmin)} … ${fmt(tmax)} °C`);
+    const ex=cfg.extra? cfg.extra(p,25):[];
+    setMetric(3, ex[0]?ex[0][0]:"—", ex[0]?ex[0][1]:"—");
+    setMetric(4, ex[1]?ex[1][0]:"—", ex[1]?ex[1][1]:"—");
+    drawCurve(cfg,p,NaN,NaN,dir);
+    $("curvePt").textContent="";
+  };
+
   if(dir==="fwd"){
-    t=raw; out=cfg.fwd(p,t);
+    t=raw;
+    if(t<hard[0]||t>hard[1]){
+      refuse(`${fmt(t)} °C is beyond the physical limits of this sensor family (${fmt(hard[0])} … ${fmt(hard[1])} °C) — no meaningful result.`);
+      return;
+    }
+    out=cfg.fwd(p,t);
     if(t<tmin||t>tmax){ flagMsg=`Outside defined range (${fmt(tmin)} … ${fmt(tmax)} °C). Result is extrapolated — don't trust it.`; flagCls="warn"; }
   } else {
     out=cfg.rev(p,raw);             // out here is the temperature
@@ -629,6 +650,9 @@ function compute(){
         ? `No solution: ${fmt(raw)} mV is outside this couple's curve (or below Type B's monotonic region ≥100 °C).`
         : `No solution: ${fmt(raw)} ${cfg.outUnit} doesn't map to a temperature for this sensor.`;
       flagCls="bad";
+    } else if(t<hard[0]||t>hard[1]){
+      refuse(`${fmt(raw)} ${cfg.outUnit} solves to ≈ ${fmt(t)} °C — beyond the physical limits of this sensor family (${fmt(hard[0])} … ${fmt(hard[1])} °C). Not a real reading.`);
+      return;
     } else if(t<tmin||t>tmax){
       flagMsg=`Solved temperature ${fmt(t)} °C is outside the defined range — extrapolated.`; flagCls="warn";
     }
