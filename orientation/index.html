@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Orientation Sensor</title>
+<title>Orientation Sensor Lab</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=DM+Sans:wght@400;500;700&display=swap');
 
@@ -19,6 +19,7 @@
     --green: #3fb950;
     --orange: #d29922;
     --red: #f85149;
+    --purple: #bc8cff;
   }
 
   body {
@@ -29,9 +30,19 @@
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: 1.5rem 1rem;
+    padding: 1.5rem 1rem 3rem;
     -webkit-font-smoothing: antialiased;
   }
+
+  .back {
+    align-self: flex-start;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.75rem;
+    color: var(--dim);
+    text-decoration: none;
+    margin-bottom: 1rem;
+  }
+  .back:hover { color: var(--accent); }
 
   h1 {
     font-family: 'JetBrains Mono', monospace;
@@ -45,6 +56,7 @@
     color: var(--dim);
     font-size: 0.8rem;
     margin-bottom: 1.5rem;
+    text-align: center;
   }
 
   #startBtn {
@@ -79,12 +91,20 @@
   }
   .status.active .dot { background: var(--green); }
 
+  .visuals {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2rem;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
+
   /* 3D phone scene */
   .scene {
     width: 180px;
     height: 260px;
     perspective: 600px;
-    margin-bottom: 2rem;
   }
 
   .phone {
@@ -135,10 +155,71 @@
   .phone-side-t { width: 180px; height: 12px; background: #24292e; border-radius: 2px; transform: rotateX(90deg) translateZ(0px); }
   .phone-side-b { width: 180px; height: 12px; background: #24292e; border-radius: 2px; transform: rotateX(-90deg) translateZ(248px); }
 
-  /* Data cards */
-  .axes {
+  /* Compass */
+  .compass-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.6rem;
+  }
+  .compass {
+    width: 150px; height: 150px;
+    position: relative;
+    border: 2px solid var(--border);
+    border-radius: 50%;
+    background: radial-gradient(circle at 50% 40%, #1c2128, #0d1117);
+  }
+  .compass::before {           /* fixed device-heading needle */
+    content: '';
+    position: absolute;
+    top: -2px; left: 50%;
+    transform: translateX(-50%);
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 10px solid var(--red);
+  }
+  .rose {
+    position: absolute;
+    inset: 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+  }
+  .rose span {
+    position: absolute;
+    left: 50%; top: 50%;
+  }
+  .rose .n { transform: translate(-50%, -50%) rotate(0deg)   translateY(-58px) rotate(0deg);   color: var(--red); font-weight: 600; }
+  .rose .e { transform: translate(-50%, -50%) rotate(90deg)  translateY(-58px) rotate(-90deg); }
+  .rose .s { transform: translate(-50%, -50%) rotate(180deg) translateY(-58px) rotate(-180deg); }
+  .rose .w { transform: translate(-50%, -50%) rotate(270deg) translateY(-58px) rotate(-270deg); }
+  .compass-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--purple);
+  }
+  .compass-meta {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--dim);
+  }
+
+  /* Sections */
+  .panel {
     width: 100%;
-    max-width: 360px;
+    max-width: 380px;
+  }
+  .section-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--dim);
+    margin: 1.5rem 0 0.6rem;
+  }
+
+  .axes {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
@@ -197,121 +278,344 @@
   .axis-card:nth-child(2) .bar-fill { background: var(--green); }
   .axis-card:nth-child(3) .bar-fill { background: var(--orange); }
 
+  /* Compact 3-column grids for motion data */
+  .grid3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+  }
+  .mini-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.7rem 0.6rem;
+    text-align: center;
+  }
+  .mini-card .k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.6rem;
+    color: var(--dim);
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+  .mini-card .v {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .accel .v { color: var(--accent); }
+  .gyro .v { color: var(--green); }
+
+  .wide-card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.8rem 1.2rem;
+    margin-top: 0.6rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .wide-card .k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--dim);
+  }
+  .wide-card .v {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.3rem;
+    font-weight: 600;
+    color: var(--purple);
+  }
+
+  /* Info rows */
+  .info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    padding: 0.35rem 0.2rem;
+    border-bottom: 1px dashed var(--border);
+  }
+  .info-row .k { color: var(--dim); }
+  .info-row .v { color: var(--text); }
+  .info-row .v.ok { color: var(--green); }
+  .info-row .v.bad { color: var(--red); }
+
   .samples {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.65rem;
     color: var(--dim);
     margin-top: 1.5rem;
+    text-align: center;
   }
 </style>
 </head>
 <body>
 
-<h1>📐 Orientation Sensor</h1>
-<p class="subtitle">deviceorientation API</p>
+<a class="back" href="../index.html">&larr; Tools</a>
 
-<button id="startBtn">Start Sensor</button>
+<h1>📐 Orientation Sensor Lab</h1>
+<p class="subtitle">deviceorientation &middot; deviceorientationabsolute &middot; devicemotion</p>
+
+<button id="startBtn">Start Sensors</button>
 
 <div class="status" id="status">
   <span class="dot"></span>Inactive
 </div>
 
-<div class="scene">
-  <div class="phone" id="phone">
-    <div class="phone-face phone-front"><div class="screen">sensor<br>active</div></div>
-    <div class="phone-face phone-back"></div>
-    <div class="phone-face phone-side-r"></div>
-    <div class="phone-face phone-side-l"></div>
-    <div class="phone-face phone-side-t"></div>
-    <div class="phone-face phone-side-b"></div>
+<div class="visuals">
+  <div class="scene">
+    <div class="phone" id="phone">
+      <div class="phone-face phone-front"><div class="screen">sensor<br>active</div></div>
+      <div class="phone-face phone-back"></div>
+      <div class="phone-face phone-side-r"></div>
+      <div class="phone-face phone-side-l"></div>
+      <div class="phone-face phone-side-t"></div>
+      <div class="phone-face phone-side-b"></div>
+    </div>
+  </div>
+
+  <div class="compass-wrap">
+    <div class="compass">
+      <div class="rose" id="rose">
+        <span class="n">N</span><span class="e">E</span><span class="s">S</span><span class="w">W</span>
+      </div>
+    </div>
+    <div class="compass-value" id="valHeading">—</div>
+    <div class="compass-meta" id="headingMeta">compass heading</div>
   </div>
 </div>
 
-<div class="axes">
-  <div class="axis-card">
-    <div>
-      <div class="axis-label">α — Z-axis<span>Yaw (compass)</span></div>
-      <div class="bar-track"><div class="bar-fill" id="barAlpha"></div></div>
+<div class="panel">
+
+  <div class="section-title">Orientation</div>
+  <div class="axes">
+    <div class="axis-card">
+      <div>
+        <div class="axis-label">α — Z-axis<span>Yaw (compass)</span></div>
+        <div class="bar-track"><div class="bar-fill" id="barAlpha"></div></div>
+      </div>
+      <div class="axis-value" id="valAlpha">0.0°</div>
     </div>
-    <div class="axis-value" id="valAlpha">0.0°</div>
-  </div>
-  <div class="axis-card">
-    <div>
-      <div class="axis-label">β — X-axis<span>Pitch (tilt fwd/back)</span></div>
-      <div class="bar-track"><div class="bar-fill" id="barBeta"></div></div>
+    <div class="axis-card">
+      <div>
+        <div class="axis-label">β — X-axis<span>Pitch (tilt fwd/back)</span></div>
+        <div class="bar-track"><div class="bar-fill" id="barBeta"></div></div>
+      </div>
+      <div class="axis-value" id="valBeta">0.0°</div>
     </div>
-    <div class="axis-value" id="valBeta">0.0°</div>
-  </div>
-  <div class="axis-card">
-    <div>
-      <div class="axis-label">γ — Y-axis<span>Roll (tilt left/right)</span></div>
-      <div class="bar-track"><div class="bar-fill" id="barGamma"></div></div>
+    <div class="axis-card">
+      <div>
+        <div class="axis-label">γ — Y-axis<span>Roll (tilt left/right)</span></div>
+        <div class="bar-track"><div class="bar-fill" id="barGamma"></div></div>
+      </div>
+      <div class="axis-value" id="valGamma">0.0°</div>
     </div>
-    <div class="axis-value" id="valGamma">0.0°</div>
   </div>
+
+  <div class="section-title">Acceleration (linear, m/s²)</div>
+  <div class="grid3">
+    <div class="mini-card accel"><span class="k">X</span><span class="v" id="accX">—</span></div>
+    <div class="mini-card accel"><span class="k">Y</span><span class="v" id="accY">—</span></div>
+    <div class="mini-card accel"><span class="k">Z</span><span class="v" id="accZ">—</span></div>
+  </div>
+  <div class="wide-card">
+    <span class="k">G-FORCE (incl. gravity)</span>
+    <span class="v" id="gforce">—</span>
+  </div>
+
+  <div class="section-title">Rotation rate (°/s)</div>
+  <div class="grid3">
+    <div class="mini-card gyro"><span class="k">α (Z)</span><span class="v" id="rotA">—</span></div>
+    <div class="mini-card gyro"><span class="k">β (X)</span><span class="v" id="rotB">—</span></div>
+    <div class="mini-card gyro"><span class="k">γ (Y)</span><span class="v" id="rotG">—</span></div>
+  </div>
+
+  <div class="section-title">Sensor info</div>
+  <div class="info">
+    <div class="info-row"><span class="k">orientation source</span><span class="v" id="infoAbsolute">—</span></div>
+    <div class="info-row"><span class="k">orientation rate</span><span class="v" id="infoRate">—</span></div>
+    <div class="info-row"><span class="k">motion interval</span><span class="v" id="infoInterval">—</span></div>
+    <div class="info-row"><span class="k">screen orientation</span><span class="v" id="infoScreen">—</span></div>
+    <div class="info-row"><span class="k">secure context</span><span class="v" id="infoSecure">—</span></div>
+    <div class="info-row"><span class="k">deviceorientation</span><span class="v" id="capOrient">—</span></div>
+    <div class="info-row"><span class="k">deviceorientationabsolute</span><span class="v" id="capAbs">—</span></div>
+    <div class="info-row"><span class="k">devicemotion</span><span class="v" id="capMotion">—</span></div>
+  </div>
+
 </div>
 
 <div class="samples" id="samples">Samples: 0</div>
 
 <script>
-  const phone = document.getElementById('phone');
-  const valAlpha = document.getElementById('valAlpha');
-  const valBeta = document.getElementById('valBeta');
-  const valGamma = document.getElementById('valGamma');
-  const barAlpha = document.getElementById('barAlpha');
-  const barBeta = document.getElementById('barBeta');
-  const barGamma = document.getElementById('barGamma');
-  const statusEl = document.getElementById('status');
-  const samplesEl = document.getElementById('samples');
-  const startBtn = document.getElementById('startBtn');
+  const $ = id => document.getElementById(id);
+  const phone = $('phone'), rose = $('rose');
+  const statusEl = $('status'), startBtn = $('startBtn');
 
-  let count = 0;
+  let orientCount = 0, motionCount = 0;
+  let orientInWindow = 0;
+  let gotAnyEvent = false;
 
+  const hasOrient = 'DeviceOrientationEvent' in window;
+  const hasAbs = 'ondeviceorientationabsolute' in window;
+  const hasMotion = 'DeviceMotionEvent' in window;
+
+  // ── Capability + environment info (static, shown immediately) ──
+  function setCap(id, ok, extra) {
+    const el = $(id);
+    el.textContent = ok ? ('supported' + (extra || '')) : 'not supported';
+    el.className = 'v ' + (ok ? 'ok' : 'bad');
+  }
+  setCap('capOrient', hasOrient);
+  setCap('capAbs', hasAbs);
+  setCap('capMotion', hasMotion);
+
+  $('infoSecure').textContent = window.isSecureContext ? 'yes' : 'no (sensors may be blocked)';
+  $('infoSecure').className = 'v ' + (window.isSecureContext ? 'ok' : 'bad');
+
+  function updateScreen() {
+    const so = screen.orientation;
+    $('infoScreen').textContent = so ? (so.type + ' (' + so.angle + '°)') : 'n/a';
+  }
+  updateScreen();
+  if (screen.orientation) screen.orientation.addEventListener('change', updateScreen);
+
+  // ── Orientation (drives 3D phone + α/β/γ cards) ──
   function onOrientation(e) {
+    gotAnyEvent = true;
     const a = e.alpha ?? 0; // 0-360
     const b = e.beta ?? 0;  // -180 to 180
     const g = e.gamma ?? 0; // -90 to 90
 
-    count++;
+    orientCount++; orientInWindow++;
 
-    valAlpha.textContent = a.toFixed(1) + '°';
-    valBeta.textContent = b.toFixed(1) + '°';
-    valGamma.textContent = g.toFixed(1) + '°';
+    $('valAlpha').textContent = a.toFixed(1) + '°';
+    $('valBeta').textContent = b.toFixed(1) + '°';
+    $('valGamma').textContent = g.toFixed(1) + '°';
 
-    // bars: alpha 0-360, beta -180..180, gamma -90..90
-    barAlpha.style.width = (a / 360 * 100) + '%';
-    barBeta.style.width = ((b + 180) / 360 * 100) + '%';
-    barGamma.style.width = ((g + 90) / 180 * 100) + '%';
+    $('barAlpha').style.width = (a / 360 * 100) + '%';
+    $('barBeta').style.width = ((b + 180) / 360 * 100) + '%';
+    $('barGamma').style.width = ((g + 90) / 180 * 100) + '%';
 
-    // 3D phone: map orientation to CSS transform
-    phone.style.transform =
-      `rotateZ(${-g}deg) rotateX(${b}deg)`;
+    phone.style.transform = `rotateZ(${-g}deg) rotateX(${b}deg)`;
 
-    if (count % 10 === 0) samplesEl.textContent = 'Samples: ' + count;
+    // iOS exposes true compass heading on the regular event
+    if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) {
+      const acc = (typeof e.webkitCompassAccuracy === 'number' && e.webkitCompassAccuracy > 0)
+        ? (' ±' + e.webkitCompassAccuracy.toFixed(0) + '°') : '';
+      setHeading(e.webkitCompassHeading, 'magnetometer (iOS)' + acc);
+      $('infoAbsolute').textContent = 'absolute (webkitCompassHeading)';
+    } else if (!hasAbs) {
+      // no absolute source at all — fall back to relative alpha
+      if (e.alpha != null) setHeading((360 - a) % 360, 'relative α (may drift)');
+      $('infoAbsolute').textContent = e.absolute ? 'absolute' : 'relative';
+    }
+
+    if (orientCount % 10 === 0) updateSamples();
   }
+
+  // ── Absolute orientation (Android: magnetometer-referenced yaw) ──
+  function onAbsolute(e) {
+    gotAnyEvent = true;
+    if (e.alpha != null) {
+      setHeading((360 - e.alpha) % 360, 'magnetometer (absolute)');
+      $('infoAbsolute').textContent = 'absolute (deviceorientationabsolute)';
+    }
+  }
+
+  function setHeading(deg, sourceLabel) {
+    $('valHeading').textContent = deg.toFixed(1) + '°';
+    $('headingMeta').textContent = sourceLabel;
+    rose.style.transform = 'rotate(' + (-deg) + 'deg)';
+  }
+
+  // ── Motion (accelerometer + gyroscope) ──
+  function onMotion(e) {
+    gotAnyEvent = true;
+    motionCount++;
+
+    const acc = e.acceleration;
+    if (acc && acc.x != null) {
+      $('accX').textContent = acc.x.toFixed(2);
+      $('accY').textContent = acc.y.toFixed(2);
+      $('accZ').textContent = acc.z.toFixed(2);
+    }
+
+    const g = e.accelerationIncludingGravity;
+    if (g && g.x != null) {
+      const mag = Math.sqrt(g.x * g.x + g.y * g.y + g.z * g.z) / 9.80665;
+      $('gforce').textContent = mag.toFixed(2) + ' g';
+    }
+
+    const r = e.rotationRate;
+    if (r && r.alpha != null) {
+      $('rotA').textContent = r.alpha.toFixed(1);
+      $('rotB').textContent = r.beta.toFixed(1);
+      $('rotG').textContent = r.gamma.toFixed(1);
+    }
+
+    if (e.interval) {
+      // interval is seconds in some engines, ms in others — normalize
+      const ms = e.interval < 1 ? e.interval * 1000 : e.interval;
+      $('infoInterval').textContent = ms.toFixed(1) + ' ms (~' + (1000 / ms).toFixed(0) + ' Hz)';
+    }
+  }
+
+  function updateSamples() {
+    $('samples').textContent = 'Samples — orientation: ' + orientCount + ' · motion: ' + motionCount;
+  }
+
+  // ── Rate meter + no-data watchdog ──
+  setInterval(() => {
+    if (!statusEl.classList.contains('active')) return;
+    $('infoRate').textContent = orientInWindow + ' Hz';
+    orientInWindow = 0;
+    updateSamples();
+  }, 1000);
 
   function activate() {
     statusEl.innerHTML = '<span class="dot"></span>Active';
     statusEl.classList.add('active');
     startBtn.classList.add('hidden');
+
     window.addEventListener('deviceorientation', onOrientation);
+    if (hasAbs) window.addEventListener('deviceorientationabsolute', onAbsolute);
+    if (hasMotion) window.addEventListener('devicemotion', onMotion);
+
+    setTimeout(() => {
+      if (!gotAnyEvent) {
+        statusEl.innerHTML = '<span class="dot"></span>Active — no data (device may have no sensors)';
+      }
+    }, 2500);
+  }
+
+  // iOS 13+ requires a user-gesture permission request per event type
+  async function requestPermissions() {
+    let orientState = 'granted';
+    if (hasOrient && typeof DeviceOrientationEvent.requestPermission === 'function') {
+      orientState = await DeviceOrientationEvent.requestPermission();
+    }
+    if (hasMotion && typeof DeviceMotionEvent.requestPermission === 'function') {
+      try { await DeviceMotionEvent.requestPermission(); } catch (e) { /* motion optional */ }
+    }
+    return orientState;
   }
 
   startBtn.addEventListener('click', () => {
-    // iOS 13+ requires permission
-    if (typeof DeviceOrientationEvent !== 'undefined' &&
-        typeof DeviceOrientationEvent.requestPermission === 'function') {
-      DeviceOrientationEvent.requestPermission()
-        .then(state => {
-          if (state === 'granted') activate();
-          else statusEl.innerHTML = '<span class="dot"></span>Permission denied';
-        })
-        .catch(err => {
-          statusEl.innerHTML = '<span class="dot"></span>Error: ' + err.message;
-        });
-    } else {
-      activate();
-    }
+    requestPermissions()
+      .then(state => {
+        if (state === 'granted') activate();
+        else statusEl.innerHTML = '<span class="dot"></span>Permission denied';
+      })
+      .catch(err => {
+        statusEl.innerHTML = '<span class="dot"></span>Error: ' + err.message;
+      });
   });
 </script>
 </body>
