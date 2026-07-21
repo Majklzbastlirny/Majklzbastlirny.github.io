@@ -361,7 +361,7 @@
 <a class="back" href="../index.html">&larr; Tools</a>
 
 <h1>📐 Orientation Sensor Lab</h1>
-<p class="subtitle">deviceorientation &middot; deviceorientationabsolute &middot; devicemotion</p>
+<p class="subtitle">deviceorientation &middot; devicemotion &middot; Generic Sensor API</p>
 
 <button id="startBtn">Start Sensors</button>
 
@@ -449,6 +449,17 @@
     <div class="info-row"><span class="k">devicemotion</span><span class="v" id="capMotion">—</span></div>
   </div>
 
+  <div class="section-title">Generic Sensor API</div>
+  <div class="info">
+    <div class="info-row"><span class="k">Accelerometer</span><span class="v" id="gsAcc">—</span></div>
+    <div class="info-row"><span class="k">LinearAccelerationSensor</span><span class="v" id="gsLin">—</span></div>
+    <div class="info-row"><span class="k">GravitySensor</span><span class="v" id="gsGrav">—</span></div>
+    <div class="info-row"><span class="k">Gyroscope</span><span class="v" id="gsGyro">—</span></div>
+    <div class="info-row"><span class="k">AbsoluteOrientationSensor</span><span class="v" id="gsAbsO">—</span></div>
+    <div class="info-row"><span class="k">RelativeOrientationSensor</span><span class="v" id="gsRelO">—</span></div>
+    <div class="info-row"><span class="k">Magnetometer</span><span class="v" id="gsMag">—</span></div>
+  </div>
+
 </div>
 
 <div class="samples" id="samples">Samples: 0</div>
@@ -486,13 +497,12 @@
   updateScreen();
   if (screen.orientation) screen.orientation.addEventListener('change', updateScreen);
 
-  // ── Orientation (drives 3D phone + α/β/γ cards) ──
-  function onOrientation(e) {
-    gotAnyEvent = true;
-    const a = e.alpha ?? 0; // 0-360
-    const b = e.beta ?? 0;  // -180 to 180
-    const g = e.gamma ?? 0; // -90 to 90
+  // Which source currently owns each part of the UI. Legacy events win over
+  // Generic Sensor readings; heading sources are ranked (higher = better).
+  let orientDataLive = false, motionDataLive = false, absOrientLive = false;
+  let headingRank = 0; // 1 relative α, 2 AbsoluteOrientationSensor, 3 magnetometer via legacy event
 
+  function renderOrientation(a, b, g) {
     orientCount++; orientInWindow++;
 
     $('valAlpha').textContent = a.toFixed(1) + '°';
@@ -505,31 +515,46 @@
 
     phone.style.transform = `rotateZ(${-g}deg) rotateX(${b}deg)`;
 
+    if (orientCount % 10 === 0) updateSamples();
+  }
+
+  // ── Orientation (drives 3D phone + α/β/γ cards) ──
+  function onOrientation(e) {
+    gotAnyEvent = true;
+    // browsers fire one all-null event when the API exists but no sensor does
+    if (e.alpha == null && e.beta == null && e.gamma == null) return;
+    orientDataLive = true;
+
+    const a = e.alpha ?? 0; // 0-360
+    const b = e.beta ?? 0;  // -180 to 180
+    const g = e.gamma ?? 0; // -90 to 90
+    renderOrientation(a, b, g);
+
     // iOS exposes true compass heading on the regular event
     if (typeof e.webkitCompassHeading === 'number' && !isNaN(e.webkitCompassHeading)) {
       const acc = (typeof e.webkitCompassAccuracy === 'number' && e.webkitCompassAccuracy > 0)
         ? (' ±' + e.webkitCompassAccuracy.toFixed(0) + '°') : '';
-      setHeading(e.webkitCompassHeading, 'magnetometer (iOS)' + acc);
+      setHeading(e.webkitCompassHeading, 'magnetometer (iOS)' + acc, 3);
       $('infoAbsolute').textContent = 'absolute (webkitCompassHeading)';
     } else if (!hasAbs) {
       // no absolute source at all — fall back to relative alpha
-      if (e.alpha != null) setHeading((360 - a) % 360, 'relative α (may drift)');
+      if (e.alpha != null) setHeading((360 - a) % 360, 'relative α (may drift)', 1);
       $('infoAbsolute').textContent = e.absolute ? 'absolute' : 'relative';
     }
-
-    if (orientCount % 10 === 0) updateSamples();
   }
 
   // ── Absolute orientation (Android: magnetometer-referenced yaw) ──
   function onAbsolute(e) {
     gotAnyEvent = true;
     if (e.alpha != null) {
-      setHeading((360 - e.alpha) % 360, 'magnetometer (absolute)');
+      setHeading((360 - e.alpha) % 360, 'magnetometer (absolute)', 3);
       $('infoAbsolute').textContent = 'absolute (deviceorientationabsolute)';
     }
   }
 
-  function setHeading(deg, sourceLabel) {
+  function setHeading(deg, sourceLabel, rank) {
+    if (rank < headingRank) return;
+    headingRank = rank;
     $('valHeading').textContent = deg.toFixed(1) + '°';
     $('headingMeta').textContent = sourceLabel;
     rose.style.transform = 'rotate(' + (-deg) + 'deg)';
@@ -539,6 +564,12 @@
   function onMotion(e) {
     gotAnyEvent = true;
     motionCount++;
+
+    if ((e.acceleration && e.acceleration.x != null) ||
+        (e.rotationRate && e.rotationRate.alpha != null) ||
+        (e.accelerationIncludingGravity && e.accelerationIncludingGravity.x != null)) {
+      motionDataLive = true;
+    }
 
     const acc = e.acceleration;
     if (acc && acc.x != null) {
@@ -579,6 +610,93 @@
     updateSamples();
   }, 1000);
 
+  // ── Generic Sensor API (desktop Chrome/Edge reach laptop IMUs here, and
+  //    unlike the legacy events it reports WHY a sensor is unavailable) ──
+  function gsStatus(id, text, cls) {
+    const el = $(id);
+    el.textContent = text;
+    el.className = 'v' + (cls ? ' ' + cls : '');
+  }
+
+  function startGeneric(ctorName, id, options, onreading) {
+    const Ctor = window[ctorName];
+    if (typeof Ctor !== 'function') { gsStatus(id, 'not supported', 'bad'); return; }
+    let sensor;
+    try { sensor = new Ctor(options); }
+    catch (err) { gsStatus(id, err.name, 'bad'); return; }
+    sensor.addEventListener('error', e => {
+      const n = e.error.name;
+      gsStatus(id,
+        n === 'NotAllowedError' ? 'permission denied' :
+        n === 'NotReadableError' ? 'no hardware / unreadable' : n, 'bad');
+    });
+    sensor.addEventListener('activate', () => gsStatus(id, 'active', 'ok'));
+    sensor.addEventListener('reading', () => { gotAnyEvent = true; onreading(sensor); });
+    try { sensor.start(); gsStatus(id, 'starting…'); }
+    catch (err) { gsStatus(id, err.name, 'bad'); }
+  }
+
+  // quaternion → deviceorientation-style Z-X'-Y'' Tait-Bryan angles
+  function quatToEuler(q) {
+    const [x, y, z, w] = q;
+    const m01 = 2 * (x * y - w * z);
+    const m11 = 1 - 2 * (x * x + z * z);
+    const m21 = 2 * (y * z + w * x);
+    const m20 = 2 * (x * z - w * y);
+    const m22 = 1 - 2 * (x * x + y * y);
+    const rad = 180 / Math.PI;
+    let alpha = Math.atan2(-m01, m11) * rad;
+    if (alpha < 0) alpha += 360;
+    const beta = Math.asin(Math.max(-1, Math.min(1, m21))) * rad;
+    const gamma = Math.atan2(-m20, m22) * rad;
+    return { alpha, beta, gamma };
+  }
+
+  function startGenericSensors() {
+    const f = { frequency: 60 };
+
+    startGeneric('AbsoluteOrientationSensor', 'gsAbsO', f, s => {
+      if (!s.quaternion) return;
+      absOrientLive = true;
+      const e = quatToEuler(s.quaternion);
+      setHeading((360 - e.alpha) % 360, 'AbsoluteOrientationSensor', 2);
+      if (orientDataLive) return;
+      renderOrientation(e.alpha, e.beta, e.gamma);
+      $('infoAbsolute').textContent = 'AbsoluteOrientationSensor (generic)';
+    });
+
+    startGeneric('RelativeOrientationSensor', 'gsRelO', f, s => {
+      if (orientDataLive || absOrientLive || !s.quaternion) return;
+      const e = quatToEuler(s.quaternion);
+      renderOrientation(e.alpha, e.beta, e.gamma);
+      $('infoAbsolute').textContent = 'RelativeOrientationSensor (generic)';
+    });
+
+    startGeneric('LinearAccelerationSensor', 'gsLin', f, s => {
+      if (motionDataLive || s.x == null) return;
+      $('accX').textContent = s.x.toFixed(2);
+      $('accY').textContent = s.y.toFixed(2);
+      $('accZ').textContent = s.z.toFixed(2);
+    });
+
+    startGeneric('Accelerometer', 'gsAcc', f, s => {
+      if (motionDataLive || s.x == null) return;
+      const mag = Math.sqrt(s.x * s.x + s.y * s.y + s.z * s.z) / 9.80665;
+      $('gforce').textContent = mag.toFixed(2) + ' g';
+    });
+
+    startGeneric('Gyroscope', 'gsGyro', f, s => {
+      if (motionDataLive || s.x == null) return;
+      const rad = 180 / Math.PI; // generic gyroscope reports rad/s
+      $('rotA').textContent = (s.z * rad).toFixed(1);
+      $('rotB').textContent = (s.x * rad).toFixed(1);
+      $('rotG').textContent = (s.y * rad).toFixed(1);
+    });
+
+    startGeneric('GravitySensor', 'gsGrav', { frequency: 10 }, () => {});
+    startGeneric('Magnetometer', 'gsMag', { frequency: 10 }, () => {});
+  }
+
   function activate() {
     statusEl.innerHTML = '<span class="dot"></span>Active';
     statusEl.classList.add('active');
@@ -587,6 +705,7 @@
     window.addEventListener('deviceorientation', onOrientation);
     if (hasAbs) window.addEventListener('deviceorientationabsolute', onAbsolute);
     if (hasMotion) window.addEventListener('devicemotion', onMotion);
+    startGenericSensors();
 
     setTimeout(() => {
       if (!gotAnyEvent) {
