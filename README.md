@@ -1,7 +1,11 @@
 # Railway & Test Tools
 
-A small collection of self-contained, browser-based utilities, served via GitHub Pages at
-**https://majklzbastlirny.github.io/**. No build step, no backend, no data leaves the browser.
+A small collection of self-contained, browser-based utilities, served at
+**https://tools.michaels-lab.com/** (primary) and **https://majklzbastlirny.github.io/**.
+No build step, no backend, no data leaves the browser.
+
+Both URLs serve this same repository: Cloudflare Pages deploys `main` to the custom domain, and
+GitHub Pages serves it too. Push once, both update.
 
 ## Tools
 

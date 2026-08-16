@@ -4,7 +4,7 @@ Guidance for Claude Code (and humans) working on this repo.
 
 ## What this is
 
-A GitHub Pages site (deployed automatically from `main`, no build step) hosting a collection of
+A static site (deployed automatically from `main`, no build step) hosting a collection of
 independent, self-contained browser tools. Each tool is a single HTML file with inline CSS/JS.
 The owner works railway/ETCS commissioning and electronics benches — tools get used offline,
 on bench laptops and phones, sometimes from `file://`. Portability and zero dependencies are
@@ -62,8 +62,8 @@ sensorcalc/           temperature sensor calculator (has its own CLAUDE.md + val
 3. If it needs shared assets, reference them as `../assets/...`.
 4. Test locally: `npx http-server -p 8931` from the repo root (also click through from the
    landing page), and ideally once via `file://` to catch path assumptions.
-5. Commit with a message explaining what the tool does; push to `main` — Pages redeploys in
-   about a minute.
+5. Commit with a message explaining what the tool does; push to `main` — both Cloudflare Pages
+   and GitHub Pages redeploy in about a minute.
 
 ## Testing patterns that work here
 
@@ -126,7 +126,11 @@ usable — Type K to 1372 °C, B to 1820 °C). New families must define `hard` (
 
 ## Git / deploy
 
-- Direct commits to `main`; GitHub Pages serves the repo root. Push = deploy (~1 min).
+- Direct commits to `main`; the repo root is served as-is. Push = deploy (~1 min).
+- Two deployments watch this repo, both from `main`, both serving the repo root:
+  - **Cloudflare Pages** project `michaels-lab-tools` → https://tools.michaels-lab.com/ (primary)
+  - **GitHub Pages** → https://majklzbastlirny.github.io/
+  Never upload to either by hand — a manual upload silently detaches that copy from the repo.
 - History was preserved through the 2026-07 reorganization with `git mv` — use `git mv` for
   any future moves too.
 - The repo owner tests on the live site quickly; still, verify locally first (see Testing).
