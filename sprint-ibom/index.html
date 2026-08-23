@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Interactive BOM for Sprint Layout</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%230c0f13'/%3E%3Ccircle cx='8' cy='8' r='3' fill='%23f0b94a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="topbar">
+  <a href="../index.html" class="back-to-tools" style="font-size:12px;color:var(--fg-2);text-decoration:none;white-space:nowrap;padding:0 4px;" title="Back to Tools">&larr; Tools</a>
+  <button id="bomToggle" class="icon-btn ghost" title="Show / hide BOM (Tab)">☰</button>
+
+  <div class="brand">
+    <span class="brand-mark"></span>
+    <span class="brand-name">iBom <span class="brand-sub">/ sprint-layout</span></span>
+  </div>
+
+  <div class="topbar-actions">
+    <label class="file-btn">
+      <input type="file" id="fileInput" accept=".lay6">
+      <span>Load .lay6</span>
+    </label>
+    <label class="file-btn ghost" title="Optional CSV with columns: refdes,value,package,notes">
+      <input type="file" id="bomCsvInput" accept=".csv,.txt">
+      <span>+ BOM CSV</span>
+    </label>
+
+    <div class="seg" role="group" aria-label="view mode">
+      <button data-mode="top"    class="seg-btn active" title="Top side (T)">Top</button>
+      <button data-mode="bottom" class="seg-btn" title="Bottom side, mirrored (B)">Bottom</button>
+      <button data-mode="xray"   class="seg-btn" title="All layers combined (X)">X-Ray</button>
+    </div>
+
+    <div class="seg" role="group" aria-label="layers" id="layerSeg">
+      <!-- filled at runtime -->
+    </div>
+
+    <button id="resetView" class="icon-btn" title="Reset view (R)">⌖</button>
+    <button id="hideVias" class="icon-btn ghost" title="Hide all holes (vias, mounting, THT drills)" aria-pressed="false">⊙</button>
+    <button id="togglePour" class="icon-btn active" title="Automatic ground plane (G)" aria-pressed="true">▦</button>
+    <button id="toggleNet" class="icon-btn ghost" title="Net mode — click copper to trace its connections (N)" aria-pressed="false">⌁</button>
+    <button id="definePart" class="icon-btn ghost" title="Define a part by clicking its pads (P)" aria-pressed="false">⊕</button>
+    <button id="exportBom" class="icon-btn ghost" title="Download the BOM as CSV">⤓</button>
+    <button id="markAll" class="icon-btn ghost" title="Toggle all placed">☐</button>
+    <button id="clearMarks" class="icon-btn ghost" title="Clear placed marks">⟲</button>
+    <button id="showHelp" class="icon-btn ghost" title="Help / keyboard shortcuts (?)">?</button>
+  </div>
+</header>
+
+<main class="layout" id="layout">
+
+  <aside class="bom" id="bom">
+    <div class="bom-tools">
+      <input type="search" id="search" placeholder="search refdes / value / package…" autocomplete="off">
+      <div class="bom-stats" id="bomStats">no file loaded</div>
+
+      <!-- Shown only in part mode. Lets you build a BOM for a board that has
+           no Sprint components of its own — exploded footprints, hand-drawn
+           layouts, reverse-engineering traces. -->
+      <div class="part-builder" id="partBuilder" hidden>
+        <div class="pb-head">
+          <strong>Define a part</strong>
+          <span class="pb-count" id="pbCount">nothing picked yet</span>
+        </div>
+        <p class="pb-hint">Click the part's pads and outline on the board.
+           Clicking something Sprint had grouped picks the whole group.
+           Objects that already belong to a part can't be picked again — delete
+           that part first.</p>
+        <div class="pb-fields">
+          <input id="pbRef" placeholder="refdes (R1)" autocomplete="off" spellcheck="false">
+          <input id="pbValue" placeholder="value (10k)" autocomplete="off" spellcheck="false">
+          <input id="pbPackage" placeholder="package (0805)" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="pb-actions">
+          <button id="pbCreate" class="pb-btn primary" disabled>Add to BOM</button>
+          <button id="pbClear" class="pb-btn">Clear pick</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="bom-scroll">
+      <table class="bom-table" id="bomTable">
+        <thead>
+          <tr>
+            <th class="col-mark"></th>
+            <th data-sort="refdes" class="col-ref">Refdes <span class="sort-arrow"></span></th>
+            <th data-sort="value">Value <span class="sort-arrow"></span></th>
+            <th data-sort="package">Package <span class="sort-arrow"></span></th>
+            <th data-sort="side" class="col-side">Side <span class="sort-arrow"></span></th>
+          </tr>
+        </thead>
+        <tbody id="bomBody"></tbody>
+      </table>
+    </div>
+  </aside>
+
+  <section class="board-pane" id="boardPane">
+
+    <div class="board-empty" id="boardEmpty">
+      <div class="hint">
+        <button class="dismiss" id="dismissWelcome" title="Dismiss">×</button>
+        <h2>Interactive BOM for Sprint Layout</h2>
+        <p>Load a <code>.lay6</code> file to begin. Everything runs locally — your design data does not leave this page.</p>
+        <ul>
+          <li><strong>Click</strong> a row or a part on the board to highlight it.</li>
+          <li><strong>Wheel</strong> to zoom, <strong>drag</strong> to pan.</li>
+          <li><strong>Tab</strong> hides the BOM panel; <strong>T / B / X</strong> switch views.</li>
+          <li>Optional CSV (<code>refdes,value,package,notes</code>) fills in missing values.</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="board-stage" id="boardStage" hidden data-mode="top">
+      <div class="board-label" id="boardLabel">TOP</div>
+      <svg id="svgBoard" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <!-- Re-showable help / shortcuts overlay (opened by the ? button) -->
+    <div class="help-overlay" id="helpOverlay" hidden>
+      <div class="help-card" role="dialog" aria-label="Keyboard shortcuts">
+        <button class="dismiss" id="helpClose" title="Close (Esc)">×</button>
+        <h2>Keyboard &amp; mouse shortcuts</h2>
+        <h3>Board</h3>
+        <ul>
+          <li><kbd>Wheel</kbd> — zoom &nbsp; · &nbsp; <kbd>Drag</kbd> — pan</li>
+          <li><kbd>T</kbd> top side &nbsp; · &nbsp; <kbd>B</kbd> bottom &nbsp; · &nbsp; <kbd>X</kbd> X-Ray</li>
+          <li><kbd>R</kbd> reset view &nbsp; · &nbsp; <kbd>Esc</kbd> deselect</li>
+          <li><kbd>G</kbd> automatic ground plane on / off</li>
+          <li><kbd>N</kbd> net mode — then click any track or pad to light up
+              everything electrically connected to it</li>
+          <li><kbd>P</kbd> part mode — click a part's pads, name it, and it
+              joins the BOM (for boards with no Sprint components)</li>
+          <li><kbd>Tab</kbd> (no row focused) — show / hide BOM panel</li>
+          <li>Double-click a part — toggle its "placed" mark</li>
+        </ul>
+        <h3>BOM (when a row is focused)</h3>
+        <ul>
+          <li><kbd>↑</kbd> / <kbd>↓</kbd> — move selection</li>
+          <li><kbd>Tab</kbd> — next row &nbsp; · &nbsp; <kbd>Shift</kbd>+<kbd>Tab</kbd> — previous row</li>
+          <li><kbd>Enter</kbd> / <kbd>Space</kbd> — toggle "placed"</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<script src="lay6.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -5,7 +5,8 @@ Guidance for Claude Code (and humans) working on this repo.
 ## What this is
 
 A static site (deployed automatically from `main`, no build step) hosting a collection of
-independent, self-contained browser tools. Each tool is a single HTML file with inline CSS/JS.
+independent, self-contained browser tools. Most tools are a single HTML
+file with inline CSS/JS; `sprint-ibom` is a vendored multi-file exception (see Per-tool notes).
 The owner works railway/ETCS commissioning and electronics benches — tools get used offline,
 on bench laptops and phones, sometimes from `file://`. Portability and zero dependencies are
 features, not accidents.
@@ -22,6 +23,7 @@ fluke/                Fluke ScopeMeter viewer (Web Serial)
 fluke-postscript/     older Fluke viewer — legacy, unlisted on landing page
 orientation/          orientation/motion sensor lab
 sensorcalc/           temperature sensor calculator (has its own CLAUDE.md + validate.mjs)
+sprint-ibom/          Interactive BOM for Sprint Layout — VENDORED from an external repo, see notes
 *.html at root        redirect stubs (meta refresh + location.replace) from the old flat layout
 ```
 
@@ -123,6 +125,26 @@ RTD `-1.11e-14` display dust, KTY84 reference-temperature anchoring (1000 Ω at 
 Every family has `hard()` physical limits: extrapolate+warn between `range` and `hard`,
 refuse with a bad flag beyond `hard` (thermocouples: hard == range, full ITS-90 spans stay
 usable — Type K to 1372 °C, B to 1820 °C). New families must define `hard` (validator enforces).
+
+### sprint-ibom
+**Vendored copy — do not edit here.** Upstream source is
+`C:\Users\Michal\Documents\Sprint-WebiBom\ibom-sprint-project\app`. Changes are made upstream
+and re-synced into this repo; anything edited directly in `sprint-ibom/` is lost on the next sync.
+
+Re-sync procedure:
+1. `cp <upstream>/app/* sprint-ibom/`
+2. Re-add the back link — it is the *only* local modification. Immediately after the
+   `<header class="topbar">` line in `sprint-ibom/index.html`, insert:
+   `<a href="../index.html" class="back-to-tools" style="font-size:12px;color:var(--fg-2);text-decoration:none;white-space:nowrap;padding:0 4px;" title="Back to Tools">&larr; Tools</a>`
+3. `git diff` to confirm nothing else moved, then commit and push.
+
+Deviates from convention 6 (inline CSS/JS): `style.css`, `lay6.js` and `app.js` stay as separate
+files next to `index.html`. Inlining would turn every upstream sync into a manual merge, and the
+files are local to the tool folder — no CDNs, no external requests, so the intent of the rule
+(self-contained, works offline and from `file://`) still holds.
+
+Upstream keeps `test-boards/`, `tools/` and its own docs; **only `app/` is published.**
+The app parses Sprint Layout `.lay6` binaries entirely client-side and renders to inline SVG.
 
 ## Git / deploy
 
