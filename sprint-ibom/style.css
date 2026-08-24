@@ -519,6 +519,16 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: var(--bg-2)
    (currentColor is set per layer-group). Add a subtle outline so adjacent
    pads are easier to tell apart. */
 .smd-pad      { fill: currentColor; pointer-events: none; }
+/* Text drawn with Sprint's stroke font: the glyph polylines stored in the
+   file. `.glyph-run` groups one text object's characters. */
+.glyph-run    { fill: none; pointer-events: none; }
+.glyph        { fill: none; stroke: currentColor; stroke-linecap: round; stroke-linejoin: round; }
+/* Substrate-coloured underlay that keeps a refdes readable over vias and
+   tracks — the stroke equivalent of paint-order on a <text>. */
+.glyph-halo   { fill: none; stroke: var(--substrate); stroke-linecap: round; stroke-linejoin: round; }
+.net-hl .glyph, .pick-hl .glyph { stroke: currentColor; }
+.net-hl .glyph-halo, .pick-hl .glyph-halo { display: none; }
+
 .silk-text    {
   fill: currentColor;
   font-family: var(--font-mono);
@@ -558,6 +568,45 @@ code { font-family: var(--font-mono); font-size: 0.92em; background: var(--bg-2)
 .bom-empty td em     { color: var(--fg-1); font-style: normal; font-weight: 600; }
 .bom-empty td strong { color: var(--fg-1); }
 .bom-empty:hover     { background: none; }
+
+/* Measurement overlay. non-scaling-stroke keeps it the same weight at any
+   zoom, which a board-space stroke width would not. */
+.measure-line {
+  fill: none; stroke: var(--accent); stroke-width: 1.5;
+  stroke-dasharray: 6 4; vector-effect: non-scaling-stroke; pointer-events: none;
+}
+.measure-end {
+  fill: var(--accent); stroke: var(--bg-0); stroke-width: 1;
+  vector-effect: non-scaling-stroke; pointer-events: none;
+}
+
+/* Net panel */
+.net-builder { margin-top: 10px; padding: 10px;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--bg-2); }
+.net-list { list-style: none; margin: 10px 0 0; padding: 0; max-height: 220px; overflow: auto; }
+.net-list li {
+  display: flex; align-items: center; gap: 8px;
+  padding: 4px 6px; border-radius: 5px; cursor: pointer; font-size: 12px;
+}
+.net-list li:hover { background: var(--bg-3); }
+.net-list li.on { background: var(--accent-soft); }
+.net-list li span { flex: 1; color: var(--fg-0); }
+.net-list li em { font-style: normal; color: var(--fg-3); font-variant-numeric: tabular-nums; }
+.net-list li.none { color: var(--fg-3); cursor: default; }
+.net-list li.none:hover { background: none; }
+
+/* Board-info modal */
+.help-card.wide { max-width: 620px; }
+.info-stats { display: grid; grid-template-columns: 1fr; gap: 2px; margin-bottom: 4px; }
+.info-stats > div { display: flex; gap: 10px; font-size: 12px; padding: 3px 0; border-bottom: 1px solid var(--border-soft); }
+.info-stats dt { flex: 0 0 120px; margin: 0; color: var(--fg-2); }
+.info-stats dd { margin: 0; color: var(--fg-0); }
+.info-note { font-size: 11px; color: var(--fg-2); line-height: 1.5; margin: 4px 0 8px; }
+.info-note.warn { color: var(--accent); }
+.drill-table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.drill-table th { text-align: right; color: var(--fg-2); font-weight: 500; padding: 3px 8px; border-bottom: 1px solid var(--border); }
+.drill-table td { text-align: right; padding: 3px 8px; border-bottom: 1px solid var(--border-soft); }
+.drill-table tr.sum td { color: var(--fg-0); font-weight: 600; border-top: 1px solid var(--border); border-bottom: none; }
 
 /* Part-builder pick highlight: the objects chosen for the part being defined. */
 .pick-hl { pointer-events: none; }

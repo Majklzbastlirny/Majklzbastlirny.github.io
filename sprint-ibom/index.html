@@ -43,7 +43,9 @@
     <button id="togglePour" class="icon-btn active" title="Automatic ground plane (G)" aria-pressed="true">▦</button>
     <button id="toggleNet" class="icon-btn ghost" title="Net mode — click copper to trace its connections (N)" aria-pressed="false">⌁</button>
     <button id="definePart" class="icon-btn ghost" title="Define a part by clicking its pads (P)" aria-pressed="false">⊕</button>
+    <button id="measure" class="icon-btn ghost" title="Measure a distance (M)" aria-pressed="false">⇔</button>
     <button id="exportBom" class="icon-btn ghost" title="Download the BOM as CSV">⤓</button>
+    <button id="boardInfo" class="icon-btn ghost" title="Board info, drill table, image export (I)">ℹ</button>
     <button id="markAll" class="icon-btn ghost" title="Toggle all placed">☐</button>
     <button id="clearMarks" class="icon-btn ghost" title="Clear placed marks">⟲</button>
     <button id="showHelp" class="icon-btn ghost" title="Help / keyboard shortcuts (?)">?</button>
@@ -56,6 +58,24 @@
     <div class="bom-tools">
       <input type="search" id="search" placeholder="search refdes / value / package…" autocomplete="off">
       <div class="bom-stats" id="bomStats">no file loaded</div>
+
+      <!-- Shown only in net mode. Sprint files carry no net names (they carry
+           no nets at all), so these are the user's own, worked out while
+           reverse-engineering a board and kept in localStorage. -->
+      <div class="net-builder" id="netBuilder" hidden>
+        <div class="pb-head">
+          <strong>Net</strong>
+          <span class="pb-count" id="netCount">click a track or pad</span>
+        </div>
+        <div class="pb-fields">
+          <input id="netName" placeholder="name this net (GND, +15V…)" autocomplete="off" spellcheck="false" disabled>
+        </div>
+        <div class="pb-actions">
+          <button id="netSave" class="pb-btn primary" disabled>Save name</button>
+          <button id="netExport" class="pb-btn" title="Download every net and its pads as CSV">Export nets</button>
+        </div>
+        <ul class="net-list" id="netList"></ul>
+      </div>
 
       <!-- Shown only in part mode. Lets you build a BOM for a board that has
            no Sprint components of its own — exploded footprints, hand-drawn
@@ -120,6 +140,26 @@
 
     <div class="status" id="status"></div>
 
+    <!-- Board info: stats, drill table, and image export. -->
+    <div class="help-overlay" id="infoOverlay" hidden>
+      <div class="help-card wide" role="dialog" aria-label="Board information">
+        <button class="dismiss" id="infoClose" title="Close (Esc)">×</button>
+        <h2>Board</h2>
+        <div id="infoStats" class="info-stats"></div>
+        <h3>Drill table</h3>
+        <div id="infoDrills"></div>
+        <h3>Export this view</h3>
+        <p class="info-note">Exports exactly what is on screen — current side,
+           zoom and layer visibility. The SVG carries its own styling and needs
+           no stylesheet.</p>
+        <div class="pb-actions">
+          <button id="exportPng" class="pb-btn primary">PNG</button>
+          <button id="exportSvg" class="pb-btn">SVG</button>
+          <button id="exportDrills" class="pb-btn">Drill table CSV</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Re-showable help / shortcuts overlay (opened by the ? button) -->
     <div class="help-overlay" id="helpOverlay" hidden>
       <div class="help-card" role="dialog" aria-label="Keyboard shortcuts">
@@ -135,6 +175,8 @@
               everything electrically connected to it</li>
           <li><kbd>P</kbd> part mode — click a part's pads, name it, and it
               joins the BOM (for boards with no Sprint components)</li>
+          <li><kbd>M</kbd> measure — click two points; snaps to pad centres</li>
+          <li><kbd>I</kbd> board info — stats, drill table, image export</li>
           <li><kbd>Tab</kbd> (no row focused) — show / hide BOM panel</li>
           <li>Double-click a part — toggle its "placed" mark</li>
         </ul>

@@ -338,6 +338,12 @@ function objectBBox(o) {
       // around invisible slots positioned next to the refdes.
       const txt = o.text || '';
       if (!txt) return null;
+      // Sprint stores the drawn glyph polylines as children, so the exact ink
+      // extent is available and there is nothing to estimate.
+      let got = false;
+      for (const c of (o.textObjects || []))
+        for (const p of (c.polyPoints || [])) { ext(p.x, p.y); got = true; }
+      if (got) break;
       const h = (o.out || 0);
       if (!h) return null;
       // Sprint's stroke font is roughly monospace; glyph advance ≈ 0.6·h.
@@ -461,10 +467,20 @@ function capsulesFor(o) {
       }
       break;
     }
-    // TEXT is deliberately absent: Sprint draws it with a stroke font that is
-    // not in the file, so its true copper outline is unknowable here. Using
-    // the text bbox instead would bridge everything it overlaps. Copper text
-    // is decoration in practice, not routing.
+    case OBJ.TEXT: {
+      // Text on a copper layer is copper. Sprint stores the drawn glyph
+      // polylines as children, so the real ink is available and a track that
+      // touches a letter is genuinely connected to it. (Before those children
+      // were understood, text had to be skipped entirely: the only other
+      // option was its bounding box, which would bridge everything it
+      // overlapped.)
+      for (const c of (o.textObjects || [])) {
+        const pp = c.polyPoints || [];
+        const r = (c.lineWidth || 0) / 2;
+        for (let i = 0; i + 1 < pp.length; i++) seg(pp[i].x, pp[i].y, pp[i+1].x, pp[i+1].y, r);
+      }
+      break;
+    }
   }
   return caps;
 }
@@ -636,6 +652,26 @@ function buildNets(board) {
     netOf[it.i] = id;
     nets[id].push(it.i);
   }
+
+  // A stable name for each net, so a user-assigned label survives a reload.
+  // Net ids are just iteration order and would shift the moment anything is
+  // added to the board; the position of the net's first pad does not. Rounded
+  // to 1 um, which is far finer than anything is ever moved by accident and
+  // far coarser than float noise.
+  const netKeys = nets.map((members) => {
+    let best = null;
+    for (const i of members) {
+      const o = objs[i];
+      const isPad = o.type === OBJ.THT_PAD || o.type === OBJ.SMD_PAD;
+      if (!isPad) continue;
+      if (best === null || i < best) best = i;
+    }
+    if (best === null) best = Math.min(...members);
+    const o = objs[best];
+    const pp = o.polyPoints || [];
+    const x = pp.length ? pp[0].x : o.x, y = pp.length ? pp[0].y : o.y;
+    return `${Math.round(x / 10)}:${Math.round(y / 10)}`;
+  });
   // Record which nets include a ground plane, so callers can say so.
   const pourNets = new Set();
   for (let L = 1; L <= 7; L++) {
@@ -643,7 +679,7 @@ function buildNets(board) {
     const r = find(POUR_BASE + L);
     if (byRoot.has(r)) pourNets.add(byRoot.get(r));
   }
-  return { netOf, nets, items, pourNets };
+  return { netOf, nets, netKeys, items, pourNets };
 }
 
 /** Topmost copper object whose capsules contain (x, y), or -1. */
@@ -665,7 +701,76 @@ function objectAt(items, x, y, slackUnits) {
   return best;
 }
 
+/**
+ * Holes in the board, grouped by diameter.
+ *
+ * Pads that share a coordinate are ONE hole, and that matters: a board whose
+ * components have been exploded stores every through-pad once per copper
+ * layer, so counting pad records would double it. Verified against Sprint's
+ * own Excellon export by tools/check-drills.js.
+ *
+ * @returns {Array<{mm:number, count:number, plated:number, bare:number}>}
+ *   sorted by diameter, carrying a `.conflicts` count of coordinates where
+ *   two pads asked for different diameters. `bare` counts pure drillings.
+ */
+function drillTable(board) {
+  // Duplicated pads are not bit-identical: on KovalDRSSTC the two copies of a
+  // hole sit up to 0.0008 mm apart, which is enough to land either side of a
+  // grid line. So bucket coarsely and then check the neighbouring buckets for
+  // an existing hole within TOL, rather than trusting the bucket alone.
+  const TOL = 100;                 // 0.01 mm; real holes are never this close
+  const buckets = new Map();
+  const holes = [];
+  let conflicts = 0;
+  const bkey = (gx, gy) => gx + ',' + gy;
+  for (const o of board.objects) {
+    if (o.type !== OBJ.THT_PAD) continue;
+    const d = 2 * (o.inn || 0);
+    if (!(d > 0)) continue;
+    const gx = Math.floor(o.x / TOL), gy = Math.floor(o.y / TOL);
+    let hit = null;
+    for (let ax = gx - 1; ax <= gx + 1 && !hit; ax++)
+      for (let ay = gy - 1; ay <= gy + 1 && !hit; ay++)
+        for (const h of (buckets.get(bkey(ax, ay)) || []))
+          if (Math.abs(h.x - o.x) <= TOL && Math.abs(h.y - o.y) <= TOL) { hit = h; break; }
+    if (hit) {
+      // Two pads on one hole: the one with the bigger PAD wins, and its drill
+      // is the one used. Derived from Sprint's own Excellon export, where
+      // neither file order nor "bigger drill" explains both boards but this
+      // does: EDC-4 keeps a 0.60 drill under a 1.25 pad over a 0.80 drill
+      // under a 1.00 pad, while KovalDRSSTC keeps 0.60/1.00 over 0.50/0.90.
+      if (hit.d !== d) conflicts++;
+      if ((o.out || 0) > hit.out) {
+        hit.d = d;
+        hit.out = o.out || 0;
+        hit.bare = (o.out || 0) <= (o.inn || 0);
+        hit.plated = o.metalisation === 1;
+      }
+      continue;
+    }
+    const h = { x: o.x, y: o.y, d, out: o.out || 0,
+                bare: (o.out || 0) <= (o.inn || 0), plated: o.metalisation === 1 };
+    holes.push(h);
+    const k = bkey(gx, gy);
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(h);
+  }
+  const seen = { values: () => holes };
+  const by = new Map();
+  for (const h of seen.values()) {
+    const mm = +(h.d / 10000).toFixed(3);
+    if (!by.has(mm)) by.set(mm, { mm, count: 0, plated: 0, bare: 0 });
+    const r = by.get(mm);
+    r.count++;
+    if (h.plated) r.plated++;
+    if (h.bare) r.bare++;
+  }
+  const rows = [...by.values()].sort((a, b) => a.mm - b.mm);
+  rows.conflicts = conflicts;
+  return rows;
+}
+
 // Expose globals for non-module usage
 window.LAY6 = { parseLay6, extractComponents, objectBBox, bboxOfObjects,
-                buildNets, objectAt,
+                buildNets, objectAt, drillTable,
                 OBJ, LAYER, LAYER_NAME, LAYER_KEY, LAYER_IS_TOP, LAYER_IS_BOTTOM, THT_SHAPE };

@@ -14,7 +14,7 @@
  */
 
 (() => {
-  const { parseLay6, extractComponents, objectBBox, bboxOfObjects, buildNets, objectAt,
+  const { parseLay6, extractComponents, objectBBox, bboxOfObjects, buildNets, objectAt, drillTable,
           OBJ, LAYER, LAYER_NAME, LAYER_KEY, LAYER_IS_TOP, LAYER_IS_BOTTOM, THT_SHAPE } = window.LAY6;
 
   const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -62,6 +62,10 @@
   let netInfo = null;                // { netOf, nets, items, pourNets }
   let netMode = false;               // clicking copper highlights its whole net
   let selectedNet = null;
+  let netNames = new Map();          // stable net key -> user's name
+  let measureMode = false;
+  let measureFrom = null;            // {x, y} in lay units
+  let measureTo = null;
   let partMode = false;              // clicking objects builds a new BOM part
   let partPick = new Set();          // object indices picked for the new part
   let userParts = [];                // parts the user defined by hand
@@ -100,6 +104,18 @@
   const pourBtn      = el('togglePour');
   const netBtn       = el('toggleNet');
   const partBtn      = el('definePart');
+  const measureBtn   = el('measure');
+  const infoBtn      = el('boardInfo');
+  const infoOverlay  = el('infoOverlay');
+  const infoCloseBtn = el('infoClose');
+  const netBuilder   = el('netBuilder');
+  const netCountEl   = el('netCount');
+  const netNameEl    = el('netName');
+  const netSaveBtn   = el('netSave');
+  const netExportBtn = el('netExport');
+  const netListEl    = el('netList');
+  const infoStatsEl  = el('infoStats');
+  const infoDrillsEl = el('infoDrills');
   const exportBtn    = el('exportBom');
   const partBuilder  = el('partBuilder');
   const pbCount      = el('pbCount');
@@ -295,17 +311,44 @@
         return e;
       }
       case OBJ.CIRCLE: {
+        // A "circle" is really an arc. The two radii give the ring, and the
+        // angular extent is hidden in fields that mean something else for
+        // every other object type: `lineWidth` is the END angle and the
+        // `thStyle` bytes are the START angle, both in millidegrees measured
+        // counter-clockwise from east. Equal angles mean a full circle.
+        // Verified against Sprint's own export: the arc at (169.5,-12.5)
+        // carries start=270 end=90, and the gerber sweeps exactly that.
         const rin  = (o.out || 0) / UNIT;
         const rout = (o.inn || 0) / UNIT;
         const rMid = (rin + rout) / 2;
         const sw   = Math.max(Math.abs(rout - rin), MIN_LW_MM);
-        const e = $svg('circle', {
-          cx: (o.x / UNIT).toFixed(3),
-          cy: (o.y / UNIT).toFixed(3),
-          r: rMid.toFixed(3),
-          'stroke-width': (sw + 2*grow).toFixed(3),
-          'data-cid': cidAttr,
-        });
+        const cx = o.x / UNIT, cy = o.y / UNIT;
+        const b = o.thStyleBytes || [0, 0, 0, 0];
+        const a0 = ((b[0] | (b[1] << 8) | (b[2] << 16) | (b[3] << 24)) >>> 0) / 1000;
+        const a1 = (o.lineWidth >>> 0) / 1000;
+        let sweep = ((a1 - a0) % 360 + 360) % 360;
+
+        let e;
+        if (sweep < 0.05) {
+          e = $svg('circle', {
+            cx: cx.toFixed(3), cy: cy.toFixed(3), r: rMid.toFixed(3),
+            'stroke-width': (sw + 2*grow).toFixed(3), 'data-cid': cidAttr,
+          });
+        } else {
+          const pt = (deg) => {
+            const t = deg * Math.PI / 180;
+            return `${(cx + Math.cos(t)*rMid).toFixed(3)} ${(cy + Math.sin(t)*rMid).toFixed(3)}`;
+          };
+          // Angles are counter-clockwise in board space, and the path is
+          // written in board coordinates, so SVG's sweep-flag 1 (positive
+          // angle direction) is the one that matches. Checked against the two
+          // real arcs on EDC-4, which sweep 270 -> 90 through east: flag 0
+          // draws the other half of the ring.
+          e = $svg('path', {
+            d: `M${pt(a0)} A${rMid.toFixed(3)} ${rMid.toFixed(3)} 0 ${sweep > 180 ? 1 : 0} 1 ${pt(a1)}`,
+            'stroke-width': (sw + 2*grow).toFixed(3), 'data-cid': cidAttr,
+          });
+        }
         e.setAttribute('class', grow ? CLEAR + ' pour-clear-open' : 'lay-stroke');
         parent.appendChild(e);
         return e;
@@ -448,20 +491,56 @@
       }
       case OBJ.TEXT: {
         if (!o.text) return null;       // skip empty text holders
+        const isComponentLabel = !!o.component;
+
+        // Sprint draws text with a stroke font, and it stores the result: a
+        // TEXT object's `textObjects` children are LINE records holding the
+        // actual glyph polylines, in absolute board coordinates, each with the
+        // pen width Sprint used. So there is no font to reconstruct and no
+        // metrics to guess — draw the children and the text is pixel-identical
+        // to Sprint's own output, for any character in any language.
+        //
+        // Because the polylines are ordinary board geometry, they need no
+        // transform of their own: the world transform flips Y and mirrors
+        // bottom-side text exactly the way Sprint does.
+        const glyphs = (o.textObjects || []).filter(c => c.polyPoints && c.polyPoints.length >= 2);
+        if (glyphs.length) {
+          const g = $svg('g', { 'data-cid': cidAttr });
+          g.setAttribute('class', grow ? 'glyph-run pour-clear pour-clear-open' : 'glyph-run');
+          const pen = (c) => Math.max((c.lineWidth || 0) / UNIT, MIN_LW_MM);
+          const path = (c) => c.polyPoints
+            .map(p => `${(p.x/UNIT).toFixed(3)},${(p.y/UNIT).toFixed(3)}`).join(' ');
+          // A refdes has to stay readable where it crosses a via or a track.
+          // `paint-order: stroke fill` did that for <text>; for strokes the
+          // equivalent is drawing each polyline twice, fat in the substrate
+          // colour first.
+          if (!grow && isComponentLabel) {
+            for (const c of glyphs) {
+              const e = $svg('polyline', {
+                points: path(c), 'stroke-width': (pen(c) + 0.30).toFixed(3),
+              });
+              e.setAttribute('class', 'glyph-halo');
+              g.appendChild(e);
+            }
+          }
+          for (const c of glyphs) {
+            const e = $svg('polyline', {
+              points: path(c), 'stroke-width': (pen(c) + 2*grow).toFixed(3),
+            });
+            if (!grow) e.setAttribute('class', 'glyph');
+            g.appendChild(e);
+          }
+          parent.appendChild(g);
+          return g;
+        }
+
+        // Fallback for a TEXT that carries no glyph children. No file seen so
+        // far is like this — Sprint always writes them — but a hand-built or
+        // truncated file could be, and an approximate label beats none.
         const h = Math.max((o.out || 0) / UNIT, 0.8);
         const rot = (o.thsize || 0);    // degrees (not millidegrees)
-        // The world is Y-flipped in every mode, so we counter the Y scale on
-        // each glyph (else letters render upside-down). We do NOT counter the
-        // X-mirror in bottom mode — Sprint's bottom view shows the text as a
-        // mirror image (as it appears on the physical bottom face), and the
-        // user expects the same.
-        // Silk-top component refdes labels need a small position nudge: Sprint
-        // anchors text near the lower-left of the glyph box, while SVG with
-        // text-anchor=middle / dominant-baseline=middle anchors at the centre.
-        // Shift the anchor up by ~one char height and left by ~half a char.
-        const isComponentLabel = !!o.component;
         const dx = isComponentLabel ? -h * 0.55 : 0;
-        const dyVisual = isComponentLabel ? h * 0.9 : 0;   // positive lay6 Y = visual up after Y-flip
+        const dyVisual = isComponentLabel ? h * 0.9 : 0;
         const tx = (o.x / UNIT + dx).toFixed(3);
         const ty = (o.y / UNIT + dyVisual).toFixed(3);
         const transform =
@@ -732,6 +811,7 @@
     // Net highlight sits under the component halo so the halo stays visible.
     world.appendChild($svg('g', { class: 'net-layer' }));
     world.appendChild($svg('g', { class: 'pick-layer' }));
+    world.appendChild($svg('g', { class: 'measure-layer' }));
 
     // Highlight overlay (populated on selection)
     const hl = $svg('g', { class: 'highlight-layer' });
@@ -746,6 +826,7 @@
     if (selectedCid) renderHighlight(selectedCid);
     if (selectedNet != null) renderNet(selectedNet);
     if (partPick.size) renderPartPick();
+    if (measureFrom) renderMeasure();
   }
 
   function applyLayerVisibility() {
@@ -1051,6 +1132,129 @@
     setStatus(`removed ${p.refdes}`);
   }
 
+  // ---------- downloads ----------
+  function download(text, mime, suffix) {
+    const blob = new Blob([text], { type: mime });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (currentFileName || 'board').replace(/\.lay6$/i, '') + suffix;
+    document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+  }
+
+  // ---------- board info ----------
+  function showBoardInfo() {
+    if (!board) { setStatus('load a board first'); return; }
+    const bb = contentBBox();
+    const counts = {};
+    for (const o of board.objects) {
+      const k = Object.keys(OBJ).find(n => OBJ[n] === o.type) || o.type;
+      counts[k] = (counts[k] || 0) + 1;
+    }
+    const layers = {};
+    for (const o of board.objects) layers[LAYER_NAME[o.layer] || o.layer] =
+      (layers[LAYER_NAME[o.layer] || o.layer] || 0) + 1;
+    const row = (k, v) => `<div><dt>${k}</dt><dd>${v}</dd></div>`;
+    infoStatsEl.innerHTML =
+      row('File', escapeHtml(currentFileName || '\u2014')) +
+      row('Board size', `${(board.sizeX/UNIT).toFixed(1)} \u00d7 ${(board.sizeY/UNIT).toFixed(1)} mm`) +
+      (bb ? row('Content extent',
+        `${((bb.maxX-bb.minX)/UNIT).toFixed(1)} \u00d7 ${((bb.maxY-bb.minY)/UNIT).toFixed(1)} mm`) : '') +
+      row('Objects', board.numObjects) +
+      row('Components', components.length) +
+      row('Nets', netInfo ? netInfo.nets.length : 0) +
+      row('Named nets', [...netNames.keys()].filter(k => netInfo && netInfo.netKeys.includes(k)).length) +
+      row('By type', Object.entries(counts).map(([k,v]) => `${k} ${v}`).join(', ')) +
+      row('By layer', Object.entries(layers).map(([k,v]) => `${k} ${v}`).join(', '));
+
+    const t = drillTable(board);
+    const total = t.reduce((a, r) => a + r.count, 0);
+    infoDrillsEl.innerHTML = t.length
+      ? `<table class="drill-table"><thead><tr><th>Ø mm</th><th>holes</th><th>plated</th><th>no ring</th></tr></thead><tbody>` +
+        t.map(r => `<tr><td>${r.mm.toFixed(2)}</td><td>${r.count}</td><td>${r.plated}</td><td>${r.bare || ''}</td></tr>`).join('') +
+        `<tr class="sum"><td>total</td><td>${total}</td><td></td><td></td></tr></tbody></table>` +
+        (t.conflicts ? `<p class="info-note warn">${t.conflicts} hole${t.conflicts===1?'':'s'} ` +
+          `${t.conflicts===1?'is':'are'} specified twice at different diameters. Sprint drills the ` +
+          `one under the larger pad, which is what is counted here \u2014 worth checking before ` +
+          `you drill.</p>` : '')
+      : '<p class="info-note">This board has no drilled holes.</p>';
+    infoOverlay.hidden = false;
+  }
+
+  // ---------- view export ----------
+  // Everything the app can hand back has to work from a file:// page, so no
+  // network requests: the stylesheet cannot be fetched and inlined. Instead
+  // each element's *computed* style is copied onto it, which is better anyway
+  // — it resolves currentColor and every CSS variable, so the result stands
+  // alone with no classes to honour.
+  const EXPORT_PROPS = ['fill', 'stroke', 'stroke-width', 'stroke-linecap',
+                        'stroke-linejoin', 'opacity', 'fill-opacity', 'stroke-opacity',
+                        'font-family', 'font-size', 'font-weight', 'text-anchor',
+                        'dominant-baseline', 'paint-order', 'mask'];
+  function inlineStyles(liveRoot, cloneRoot) {
+    const live = [liveRoot, ...liveRoot.querySelectorAll('*')];
+    const cl = [cloneRoot, ...cloneRoot.querySelectorAll('*')];
+    for (let i = 0; i < live.length; i++) {
+      const cs = getComputedStyle(live[i]);
+      const c = cl[i];
+      if (!c) continue;
+      if (cs.display === 'none') { c.remove(); continue; }
+      let css = '';
+      for (const prop of EXPORT_PROPS) {
+        const v = cs.getPropertyValue(prop);
+        if (v && v !== 'normal' && v !== 'auto' && v !== 'none' || (v === 'none' && prop === 'fill'))
+          css += `${prop}:${v};`;
+      }
+      c.setAttribute('style', css);
+      c.removeAttribute('class');
+    }
+  }
+
+  function buildExportSvg() {
+    const clone = svgBoard.cloneNode(true);
+    inlineStyles(svgBoard, clone);
+    // hit targets are invisible helpers, not artwork
+    clone.querySelectorAll('[data-cid-hit]').forEach(e => e.remove());
+    const vb = svgBoard.getAttribute('viewBox').split(/\s+/).map(Number);
+    clone.setAttribute('xmlns', SVG_NS);
+    clone.setAttribute('width', vb[2].toFixed(3) + 'mm');
+    clone.setAttribute('height', vb[3].toFixed(3) + 'mm');
+    clone.removeAttribute('id');
+    const bg = document.createElementNS(SVG_NS, 'rect');
+    bg.setAttribute('x', vb[0]); bg.setAttribute('y', vb[1]);
+    bg.setAttribute('width', vb[2]); bg.setAttribute('height', vb[3]);
+    bg.setAttribute('fill', getComputedStyle(boardStage).backgroundColor || '#0c0f13');
+    clone.insertBefore(bg, clone.firstChild);
+    return { text: new XMLSerializer().serializeToString(clone), vb };
+  }
+
+  function exportView(kind) {
+    if (!board) { setStatus('load a board first'); return; }
+    const { text, vb } = buildExportSvg();
+    if (kind === 'svg') {
+      download(text, 'image/svg+xml;charset=utf-8', '-view.svg');
+      setStatus('exported view as SVG');
+      return;
+    }
+    const W = 2000, H = Math.max(1, Math.round(W * vb[3] / vb[2]));
+    const img = new Image();
+    img.onload = () => {
+      const c = document.createElement('canvas');
+      c.width = W; c.height = H;
+      c.getContext('2d').drawImage(img, 0, 0, W, H);
+      c.toBlob((blob) => {
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = (currentFileName || 'board').replace(/\.lay6$/i, '') + '-view.png';
+        document.body.appendChild(a); a.click();
+        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+        setStatus(`exported view as PNG (${W}\u00d7${H})`);
+      }, 'image/png');
+    };
+    img.onerror = () => setStatus('could not rasterise the view');
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(text)));
+  }
+
   // ---------- CSV export ----------
   function bomToCsv() {
     const esc = (v) => {
@@ -1133,6 +1337,97 @@
     layer.appendChild(g);
   }
 
+  // ---------- net names ----------
+  // Sprint stores no nets and therefore no net names. These are the user's,
+  // keyed by a stable signature of the net (see buildNets) so that a label
+  // survives reloading the file.
+  function netsKey() { return 'ibom-sprint:nets:' + placedKey; }
+  function loadNetNames() {
+    netNames = new Map();
+    if (!placedKey) return;
+    try {
+      const raw = localStorage.getItem(netsKey());
+      if (raw) for (const [k, v] of Object.entries(JSON.parse(raw))) netNames.set(k, v);
+    } catch (_) {}
+  }
+  function saveNetNames() {
+    if (!placedKey) return;
+    // Names whose net is not in the current file are kept, not dropped: the
+    // board may simply have been edited and re-saved, and losing a session of
+    // reverse-engineering labels to a stray edit would be unforgivable.
+    try { localStorage.setItem(netsKey(), JSON.stringify(Object.fromEntries(netNames))); } catch (_) {}
+  }
+  function netNameOf(netId) {
+    if (!netInfo) return '';
+    return netNames.get(netInfo.netKeys[netId]) || '';
+  }
+  function netLabel(netId) {
+    return netNameOf(netId) || `net #${netId}`;
+  }
+
+  function renderNetPanel() {
+    if (!netInfo) return;
+    const named = [];
+    netInfo.netKeys.forEach((k, id) => {
+      const nm = netNames.get(k);
+      if (nm) named.push({ id, nm });
+    });
+    named.sort((a, b) => naturalCompare(a.nm, b.nm));
+    netListEl.innerHTML = named.length
+      ? named.map(n => `<li data-net="${n.id}"${n.id === selectedNet ? ' class="on"' : ''}>` +
+          `<span>${escapeHtml(n.nm)}</span><em>${netInfo.nets[n.id].length}</em>` +
+          `<button class="row-del" data-unname="${n.id}" title="Remove this name">\u00d7</button></li>`).join('')
+      : '<li class="none">no names yet</li>';
+    const has = selectedNet != null;
+    netNameEl.disabled = !has;
+    netSaveBtn.disabled = !has;
+    if (has) {
+      const m = netInfo.nets[selectedNet];
+      const pads = m.filter(i => board.objects[i].type === OBJ.THT_PAD ||
+                                 board.objects[i].type === OBJ.SMD_PAD).length;
+      netCountEl.textContent = `${netLabel(selectedNet)} \u00b7 ${pads} pad${pads === 1 ? '' : 's'}`;
+      netNameEl.value = netNameOf(selectedNet);
+    } else {
+      netCountEl.textContent = 'click a track or pad';
+      netNameEl.value = '';
+    }
+  }
+
+  function saveCurrentNetName() {
+    if (selectedNet == null || !netInfo) return;
+    const key = netInfo.netKeys[selectedNet];
+    const v = netNameEl.value.trim();
+    if (v) netNames.set(key, v); else netNames.delete(key);
+    saveNetNames();
+    renderNetPanel();
+    setStatus(v ? `named ${v}` : 'name cleared');
+  }
+
+  // One row per pad, which is the shape you want when working out what a
+  // board does: every pad, what it is called, and where it is.
+  function netsToCsv() {
+    const esc = (v) => {
+      const t = String(v == null ? '' : v);
+      return /[",\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t;
+    };
+    const rows = [['net', 'refdes', 'x_mm', 'y_mm', 'layer', 'type']];
+    const refOf = new Map();
+    for (const c of components) for (const m of c.members) refOf.set(m, c.refdes);
+    const order = netInfo.nets.map((_, id) => id)
+      .sort((a, b) => naturalCompare(netLabel(a), netLabel(b)));
+    for (const id of order) {
+      for (const i of netInfo.nets[id]) {
+        const o = board.objects[i];
+        const isPad = o.type === OBJ.THT_PAD || o.type === OBJ.SMD_PAD;
+        if (!isPad) continue;
+        rows.push([netLabel(id), refOf.get(o) || '', (o.x / UNIT).toFixed(3),
+                   (o.y / UNIT).toFixed(3), LAYER_NAME[o.layer] || o.layer,
+                   o.type === OBJ.THT_PAD ? 'THT' : 'SMD'].map(esc));
+      }
+    }
+    return rows.map(r => r.join(',')).join('\r\n') + '\r\n';
+  }
+
   function describeNet(netId) {
     const members = netInfo.nets[netId];
     let pads = 0, tracks = 0;
@@ -1143,7 +1438,7 @@
     }
     const gnd = netInfo.pourNets && netInfo.pourNets.has(netId)
       ? '   •  tied to the ground plane' : '';
-    return `net #${netId}   ${pads} pad${pads===1?'':'s'}   ${tracks} track${tracks===1?'':'s'}${gnd}`;
+    return `${netLabel(netId)}   ${pads} pad${pads===1?'':'s'}   ${tracks} track${tracks===1?'':'s'}${gnd}`;
   }
 
   // Screen -> board coordinates. Asking the <g class="world"> for its own CTM
@@ -1158,6 +1453,58 @@
     p.x = clientX; p.y = clientY;
     const q = p.matrixTransform(m.inverse());
     return { x: q.x * UNIT, y: q.y * UNIT };
+  }
+
+  // ---------- measure ----------
+  // Snaps to pad centres, because the distances actually wanted on an old
+  // board are pad-to-pad: lead pitch, connector spacing, mounting-hole
+  // positions.
+  function snapToPad(wx, wy, slack) {
+    let best = null, bd = slack * slack;
+    for (const o of board.objects) {
+      if (o.type !== OBJ.THT_PAD && o.type !== OBJ.SMD_PAD) continue;
+      let cx = o.x, cy = o.y;
+      const pp = o.polyPoints || [];
+      if (o.type === OBJ.SMD_PAD && pp.length >= 3) {
+        cx = 0; cy = 0;
+        for (const q of pp) { cx += q.x; cy += q.y; }
+        cx /= pp.length; cy /= pp.length;
+      }
+      const d = (cx - wx) * (cx - wx) + (cy - wy) * (cy - wy);
+      if (d < bd) { bd = d; best = { x: cx, y: cy }; }
+    }
+    return best || { x: wx, y: wy };
+  }
+
+  function renderMeasure() {
+    const layer = svgBoard.querySelector('.measure-layer');
+    if (!layer) return;
+    while (layer.firstChild) layer.removeChild(layer.firstChild);
+    const dot = (p, cls) => {
+      const c = $svg('circle', { cx: (p.x/UNIT).toFixed(3), cy: (p.y/UNIT).toFixed(3), r: 0.35 });
+      c.setAttribute('class', cls);
+      layer.appendChild(c);
+    };
+    if (measureFrom) dot(measureFrom, 'measure-end');
+    if (measureFrom && measureTo) {
+      const l = $svg('line', {
+        x1: (measureFrom.x/UNIT).toFixed(3), y1: (measureFrom.y/UNIT).toFixed(3),
+        x2: (measureTo.x/UNIT).toFixed(3), y2: (measureTo.y/UNIT).toFixed(3),
+      });
+      l.setAttribute('class', 'measure-line');
+      layer.appendChild(l);
+      dot(measureTo, 'measure-end');
+    }
+  }
+
+  function measureStatus() {
+    if (!measureFrom) { setStatus('measure: click the first point'); return; }
+    if (!measureTo) { setStatus('measure: click the second point'); return; }
+    const dx = (measureTo.x - measureFrom.x) / UNIT, dy = (measureTo.y - measureFrom.y) / UNIT;
+    const d = Math.hypot(dx, dy);
+    const ang = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360;
+    setStatus(`${d.toFixed(3)} mm    dx ${dx.toFixed(3)}    dy ${dy.toFixed(3)}    ${ang.toFixed(1)}\u00b0` +
+              `    (${(d / 25.4).toFixed(4)} in)`);
   }
 
   // ---------- pan / zoom ----------
@@ -1244,6 +1591,20 @@
         // Resolve the net under the pointer before the component handling
         // below, but apply its status line after — selectComponent() rewrites
         // the status, so setting it here would just get overwritten.
+        if (measureMode) {
+          const rect = svg.getBoundingClientRect();
+          const slack = (vb.w / Math.max(rect.width, 1)) * 10 * UNIT;
+          const w = clientToWorld(e.clientX, e.clientY);
+          if (w) {
+            const p2 = snapToPad(w.x, w.y, slack);
+            if (!measureFrom || measureTo) { measureFrom = p2; measureTo = null; }
+            else measureTo = p2;
+            renderMeasure();
+            measureStatus();
+          }
+          downAt = null; downTarget = null;
+          return;                       // measure owns the click
+        }
         if (partMode) {
           const rect = svg.getBoundingClientRect();
           const slack = (vb.w / Math.max(rect.width, 1)) * 3 * UNIT;
@@ -1262,6 +1623,7 @@
           const hit = w ? objectAt(netInfo.items, w.x, w.y, slack) : -1;
           net = hit >= 0 ? netInfo.netOf[hit] : -1;
           renderNet(net >= 0 ? net : null);
+          renderNetPanel();
         }
         if (cid && cid === lastClick.cid && now - lastClick.time < DBL_MS) {
           // Second click on the same component within the window → double-click.
@@ -1354,6 +1716,23 @@
     // mirror X around the board centre.
     const focusX = (mode === 'bottom') ? (allCx() * 2 - cx) : cx;
     vb.x = focusX - vb.w / 2;
+    vb.y = -cy - vb.h / 2;
+    applyViewBox();
+  }
+
+  // Centre the view on a net (used when picking one from the list).
+  function focusOnNet(netId) {
+    if (!netInfo || !board) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const i of netInfo.nets[netId]) {
+      const b = objectBBox(board.objects[i]);
+      if (!b) continue;
+      minX = Math.min(minX, b.minX); minY = Math.min(minY, b.minY);
+      maxX = Math.max(maxX, b.maxX); maxY = Math.max(maxY, b.maxY);
+    }
+    if (!isFinite(minX)) return;
+    const cx = (minX + maxX) / 2 / UNIT, cy = (minY + maxY) / 2 / UNIT;
+    vb.x = ((mode === 'bottom') ? (allCx() * 2 - cx) : cx) - vb.w / 2;
     vb.y = -cy - vb.h / 2;
     applyViewBox();
   }
@@ -1590,24 +1969,63 @@ ${err.message}`);
 
     // Net mode. Sprint has no netlist to read — these nets are worked out from
     // the copper itself, so they also exist on boards with no components.
+    // Net, part and measure mode all take over the board click, so at most
+    // one of them can be on.
+    function exclusive(except) {
+      if (except !== 'net' && netMode) setNetMode(false);
+      if (except !== 'part' && partMode) setPartMode(false);
+      if (except !== 'measure' && measureMode) setMeasureMode(false);
+    }
     function setNetMode(on) {
       netMode = on;
       netBtn.setAttribute('aria-pressed', String(on));
       netBtn.classList.toggle('active', on);
+      netBuilder.hidden = !on;
       if (!on) { renderNet(null); setStatus(''); }
       else {
-        if (partMode) setPartMode(false);      // the two modes both own the click
+        exclusive('net');
+        if (layoutEl.classList.contains('bom-hidden')) layoutEl.classList.remove('bom-hidden');
+        renderNetPanel();
         setStatus('net mode: click any track or pad to trace its connections');
       }
     }
     netBtn.addEventListener('click', () => setNetMode(!netMode));
+    netSaveBtn.addEventListener('click', saveCurrentNetName);
+    netNameEl.addEventListener('keydown', (e) => { if (e.key === 'Enter') saveCurrentNetName(); });
+    netListEl.addEventListener('click', (e) => {
+      const un = e.target.closest('button[data-unname]');
+      if (un) {
+        netNames.delete(netInfo.netKeys[Number(un.dataset.unname)]);
+        saveNetNames(); renderNetPanel();
+        return;
+      }
+      const li = e.target.closest('li[data-net]');
+      if (!li) return;
+      const id = Number(li.dataset.net);
+      renderNet(id); renderNetPanel();
+      setStatus(describeNet(id));
+      focusOnNet(id);
+    });
+    netExportBtn.addEventListener('click', () => {
+      if (!netInfo || !netInfo.nets.length) { setStatus('no nets to export'); return; }
+      download(netsToCsv(), 'text/csv;charset=utf-8', '-nets.csv');
+    });
+
+    function setMeasureMode(on) {
+      measureMode = on;
+      measureBtn.setAttribute('aria-pressed', String(on));
+      measureBtn.classList.toggle('active', on);
+      if (!on) { measureFrom = measureTo = null; renderMeasure(); setStatus(''); }
+      else { exclusive('measure'); measureStatus(); }
+    }
+    measureBtn.addEventListener('click', () => setMeasureMode(!measureMode));
 
     function setPartMode(on) {
       partMode = on;
       partBtn.setAttribute('aria-pressed', String(on));
       partBtn.classList.toggle('active', on);
       partBuilder.hidden = !on;
-      if (on && netMode) setNetMode(false);    // the two modes both own the click
+      if (on) exclusive('part');
       if (!on) { partPick.clear(); renderPartPick(); setStatus(''); }
       else {
         if (layoutEl.classList.contains('bom-hidden')) layoutEl.classList.remove('bom-hidden');
@@ -1615,6 +2033,18 @@ ${err.message}`);
       }
     }
     partBtn.addEventListener('click', () => setPartMode(!partMode));
+    infoBtn.addEventListener('click', () => showBoardInfo());
+    infoCloseBtn.addEventListener('click', () => { infoOverlay.hidden = true; });
+    infoOverlay.addEventListener('click', (e) => { if (e.target === infoOverlay) infoOverlay.hidden = true; });
+    el('exportPng').addEventListener('click', () => exportView('png'));
+    el('exportSvg').addEventListener('click', () => exportView('svg'));
+    el('exportDrills').addEventListener('click', () => {
+      if (!board) return;
+      const rows = [['diameter_mm', 'holes', 'plated', 'unplated_or_bare']];
+      for (const r of drillTable(board))
+        rows.push([r.mm.toFixed(2), r.count, r.plated, r.bare]);
+      download(rows.map(r => r.join(',')).join('\r\n') + '\r\n', 'text/csv;charset=utf-8', '-drills.csv');
+    });
     pbCreate.addEventListener('click', createUserPart);
     pbClear.addEventListener('click', () => { partPick.clear(); renderPartPick(); });
     pbRef.addEventListener('input', () => { pbCreate.disabled = !partPick.size || !pbRef.value.trim(); });
@@ -1623,12 +2053,7 @@ ${err.message}`);
 
     exportBtn.addEventListener('click', () => {
       if (!components.length) { setStatus('nothing to export yet'); return; }
-      const blob = new Blob([bomToCsv()], { type: 'text/csv;charset=utf-8' });
-      const a = document.createElement('a');
-      a.href = URL.createObjectURL(blob);
-      a.download = (currentFileName || 'bom').replace(/\.lay6$/i, '') + '-bom.csv';
-      document.body.appendChild(a); a.click();
-      setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 0);
+      download(bomToCsv(), 'text/csv;charset=utf-8', '-bom.csv');
     });
 
     // Keyboard
@@ -1640,6 +2065,8 @@ ${err.message}`);
 
       if (e.key === 'Escape') {
         if (!helpOverlay.hidden) { helpOverlay.hidden = true; e.preventDefault(); return; }
+        if (!infoOverlay.hidden) { infoOverlay.hidden = true; e.preventDefault(); return; }
+        if (measureFrom) { measureFrom = measureTo = null; renderMeasure(); measureStatus(); }
         renderNet(null);
         selectComponent(null);
       } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
@@ -1659,6 +2086,10 @@ ${err.message}`);
         setNetMode(!netMode);
       } else if (e.key === 'p' || e.key === 'P') {
         setPartMode(!partMode);
+      } else if (e.key === 'm' || e.key === 'M') {
+        setMeasureMode(!measureMode);
+      } else if (e.key === 'i' || e.key === 'I') {
+        showBoardInfo();
       } else if (e.key === 'Tab') {
         layoutEl.classList.toggle('bom-hidden');
         e.preventDefault();
@@ -1698,10 +2129,12 @@ ${err.message}`);
     // feed back into the key that decides which saved parts to load.
     placedKey = hashString([parsed.projectName, board.name, components.length, board.numObjects].join('|'));
     loadPlaced();
+    loadNetNames();
     loadUserParts();
     rebuildComponents();
     _contentBb = null;
     partPick.clear();
+    measureFrom = measureTo = null;
     netInfo = buildNets(board);
     selectedNet = null;
     selectedCid = null;
