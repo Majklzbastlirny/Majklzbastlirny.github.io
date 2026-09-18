@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="auto">
+<html lang="en" data-theme="dark">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,6 +12,7 @@
   --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,0.10);
   --hover:rgba(11,11,11,0.05); --active:rgba(11,11,11,0.09);
   --good:#0ca30c; --warning:#fab219; --critical:#d03b3b;
+  --band:rgba(11,11,11,0.085); --band-line:rgba(11,11,11,0.22);
   --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
   --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
   --radius:7px;
@@ -26,6 +27,7 @@
     --hover:rgba(255,255,255,0.06); --active:rgba(255,255,255,0.11);
     --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
     --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+    --band:rgba(255,255,255,0.10); --band-line:rgba(255,255,255,0.24);
   }
 }
 :root[data-theme="dark"]{
@@ -36,6 +38,7 @@
   --hover:rgba(255,255,255,0.06); --active:rgba(255,255,255,0.11);
   --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
   --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  --band:rgba(255,255,255,0.10); --band-line:rgba(255,255,255,0.24);
 }
 
 *{box-sizing:border-box}
@@ -49,7 +52,7 @@ h1{margin:0;font-weight:600}
 
 #app{display:flex;flex-direction:column;height:100%}
 header{display:flex;align-items:center;gap:10px;padding:9px 14px;
-  background:var(--surface-1);border-bottom:1px solid var(--border);flex:none}
+  background:var(--surface-1);border-bottom:1px solid var(--border);flex:none;flex-wrap:wrap}
 .brand{display:flex;align-items:baseline;gap:8px;margin-right:auto;min-width:0}
 .brand h1{font-size:14px;letter-spacing:-0.01em;white-space:nowrap}
 .brand span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -69,6 +72,7 @@ main{display:flex;flex:1;min-height:0}
 
 #sidebar{width:278px;flex:none;background:var(--surface-1);
   border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+#sidebar[hidden]{display:none!important}
 .panel{border-bottom:1px solid var(--border);padding:11px 13px;flex:none}
 .panel-h{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;
   letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
@@ -101,6 +105,22 @@ main{display:flex;flex:1;min-height:0}
 .x:hover{background:var(--hover);color:var(--critical)}
 
 .empty{color:var(--muted);font-size:12px;text-align:center;padding:22px 10px;line-height:1.65}
+
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+.live-dot{width:7px;height:7px;border-radius:99px;background:var(--critical);flex:none;
+  animation:pulse 1.1s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.live-dot{animation:none}}
+.chip.live{cursor:default;color:var(--critical);border-color:currentColor}
+.chip.live:hover{background:var(--surface-1)}
+.chip.live .rate{color:var(--muted);font-variant-numeric:tabular-nums}
+.btn.tiny{padding:2px 8px;font-size:10.5px;border-radius:99px}
+.btn.live-on{background:var(--critical);border-color:transparent;color:#fff;font-weight:500}
+.btn.live-on:hover{filter:brightness(1.08);color:#fff}
+.trace.is-live{border-color:var(--critical)}
+
+.band-chips{display:flex;flex-wrap:wrap;gap:5px}
+.band-chips .chip{cursor:pointer}
+.band-chips .chip.on{background:var(--s1);border-color:transparent;color:#fff;font-weight:500}
 
 .field{display:flex;align-items:center;gap:7px;margin-bottom:7px}
 .field:last-child{margin-bottom:0}
@@ -244,13 +264,15 @@ dialog::backdrop{background:rgba(0,0,0,.34)}
 <body>
 <div id="app">
   <header>
-    <a href="../index.html" class="back-to-tools" style="font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap;align-self:center;" title="Back to Tools">&larr; Tools</a>
+    <button class="btn icon" id="btn-sidebar" title="Hide the side panel (more room for the chart)">&#9776;</button>
     <div class="brand">
+      <a href="../index.html" class="back-to-tools" style="font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap;" title="Back to Tools">&larr; Tools</a>
       <h1>NanoVNA Viewer</h1>
       <span>Touchstone .s1p / .s2p</span>
     </div>
     <button class="btn primary" id="btn-open">Open files</button>
     <button class="btn" id="btn-vna">Capture from VNA</button>
+    <button class="btn" id="btn-live" title="Sweep continuously and update a live trace">Live</button>
     <button class="btn" id="btn-samples">Samples</button>
     <button class="btn" id="btn-csv" disabled>CSV</button>
     <button class="btn" id="btn-png" disabled>PNG</button>
@@ -280,6 +302,24 @@ dialog::backdrop{background:rgba(0,0,0,.34)}
             <option value="s11min">Min return loss (S11)</option>
             <option value="swrmin">Min SWR</option>
             <option value="s21max">Max |S21|</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">Bands
+          <button class="x" id="bands-none" title="Hide all bands" style="margin-left:auto">&times;</button>
+        </div>
+        <div class="band-chips" id="band-chips"></div>
+        <label class="check" style="margin-top:8px" title="Show channel plans (LoRaWAN, CB, Wi-Fi) inside the enabled bands">
+          <input type="checkbox" id="band-channels"> Channels
+        </label>
+        <div class="field" style="margin-top:8px">
+          <label for="band-region">Region</label>
+          <select id="band-region">
+            <option value="1" selected>1 — Europe, Africa</option>
+            <option value="2">2 — Americas</option>
+            <option value="3">3 — Asia-Pacific</option>
           </select>
         </div>
       </div>
@@ -630,7 +670,10 @@ function fmtFreq(hz, digits){
   else if (a >= 1e6){ u='MHz'; d=1e6; }
   else if (a >= 1e3){ u='kHz'; d=1e3; }
   const v = hz/d;
-  const p = digits != null ? digits : (Math.abs(v) >= 100 ? 3 : Math.abs(v) >= 10 ? 4 : 5);
+  // 7 significant digits by default: LoRaWAN channels are 200 kHz apart, so rounding
+  // 868.1 MHz to "868" would make the readout useless. Callers that want a short axis
+  // label pass `digits` explicitly. Trailing zeros are trimmed, so round numbers stay short.
+  const p = digits != null ? digits : 7;
   return trimZeros(v.toPrecision(p)) + ' ' + u;
 }
 function trimZeros(s){
@@ -693,6 +736,173 @@ function parseFreq(str){
   return v * mult;
 }
 
+/* ============================== band overlays =============================== */
+/*
+ * A visual guide, not a regulatory reference — allocations vary by country and change.
+ * `r` is the ITU region: 0 = worldwide, 1 = Europe/Africa/Russia, 2 = Americas,
+ * 3 = Asia-Pacific. This matters: the "868 MHz" SRD band is Region 1 only, and its
+ * Region 2 counterpart is 902-928 MHz. Showing both at once would mislead.
+ */
+const M = 1e6, K = 1e3, G = 1e9;
+const BANDS = [
+  // --- ISM (ITU RR 5.138 / 5.150) + the short-range bands everyone calls ISM ---
+  ['ism', 0, 'ISM 6.78',        6.765*M,   6.795*M],
+  ['ism', 0, 'ISM 13.56 (NFC)', 13.553*M,  13.567*M],
+  ['ism', 0, 'ISM 27',          26.957*M,  27.283*M],
+  // The CB service band is wider than the ITU ISM 27 allocation it overlaps: channels
+  // 24-40 sit above 27.283 MHz.
+  ['ism', 0, 'CB 40 ch',        26.965*M,  27.405*M],
+  ['ism', 0, 'ISM 40.68',       40.66*M,   40.70*M],
+  ['ism', 1, 'SRD 169',         169.4*M,   169.8125*M],
+  ['ism', 1, 'ISM 433',         433.05*M,  434.79*M],
+  ['ism', 1, 'SRD 868 (LoRa)',  863*M,     870*M],
+  ['ism', 2, 'ISM 915',         902*M,     928*M],
+  ['ism', 0, 'ISM 2.45',        2400*M,    2500*M],
+  ['ism', 0, 'ISM 5.8',         5725*M,    5875*M],
+  ['ism', 0, 'ISM 24',          24*G,      24.25*G],
+  ['ism', 1, 'PMR446',          446.0*M,   446.2*M],
+
+  // --- broadcast ---
+  ['bc', 1, 'Longwave',      148.5*K,  283.5*K],
+  ['bc', 1, 'MW / AM',       526.5*K,  1606.5*K],
+  ['bc', 2, 'MW / AM (R2)',  535*K,    1705*K],
+  ['bc', 1, 'FM (OIRT)',     65.8*M,   74*M],
+  ['bc', 3, 'FM (Japan)',    76*M,     95*M],
+  ['bc', 0, 'FM broadcast',  87.5*M,   108*M],
+  ['bc', 0, 'DAB band III',  174*M,    240*M],
+  ['bc', 1, 'TV UHF',        470*M,    694*M],
+
+  // --- amateur (IARU; Region 1 unless noted) ---
+  ['ham', 1, '160 m', 1.810*M,  2.000*M],
+  ['ham', 2, '160 m', 1.800*M,  2.000*M],
+  ['ham', 1, '80 m',  3.500*M,  3.800*M],
+  ['ham', 2, '80 m',  3.500*M,  4.000*M],
+  ['ham', 0, '60 m',  5.3515*M, 5.3665*M],
+  ['ham', 1, '40 m',  7.000*M,  7.200*M],
+  ['ham', 2, '40 m',  7.000*M,  7.300*M],
+  ['ham', 0, '30 m',  10.100*M, 10.150*M],
+  ['ham', 0, '20 m',  14.000*M, 14.350*M],
+  ['ham', 0, '17 m',  18.068*M, 18.168*M],
+  ['ham', 0, '15 m',  21.000*M, 21.450*M],
+  ['ham', 0, '12 m',  24.890*M, 24.990*M],
+  ['ham', 0, '10 m',  28.000*M, 29.700*M],
+  ['ham', 1, '6 m',   50*M,     52*M],
+  ['ham', 2, '6 m',   50*M,     54*M],
+  ['ham', 1, '4 m',   70*M,     70.5*M],
+  ['ham', 1, '2 m',   144*M,    146*M],
+  ['ham', 2, '2 m',   144*M,    148*M],
+  ['ham', 1, '70 cm', 430*M,    440*M],
+  ['ham', 2, '70 cm', 420*M,    450*M],
+  ['ham', 0, '23 cm', 1240*M,   1300*M],
+  ['ham', 0, '13 cm', 2300*M,   2450*M],
+
+  // --- cellular (Europe-centric; UL+DL shown as one span) ---
+  ['cell', 1, 'LTE 800 (B20)',   791*M,  862*M],
+  ['cell', 1, 'GSM/LTE 900',     880*M,  960*M],
+  ['cell', 1, 'GSM/LTE 1800',    1710*M, 1880*M],
+  ['cell', 0, 'UMTS/LTE 2100',   1920*M, 2170*M],
+  ['cell', 1, 'LTE 2600 (B7)',   2500*M, 2690*M],
+  ['cell', 1, '5G n78',          3400*M, 3800*M],
+  ['cell', 2, 'Cellular 850',    824*M,  894*M],
+  ['cell', 2, 'PCS 1900',        1850*M, 1990*M],
+
+  // --- Wi-Fi ---
+  ['wifi', 0, 'Wi-Fi 2.4',      2400*M, 2483.5*M],
+  ['wifi', 0, 'Wi-Fi 5 (low)',  5150*M, 5350*M],
+  ['wifi', 0, 'Wi-Fi 5 (high)', 5470*M, 5875*M],
+  ['wifi', 1, 'Wi-Fi 6E',       5925*M, 6425*M],
+  ['wifi', 2, 'Wi-Fi 6E (R2)',  5925*M, 7125*M],
+
+  // --- navigation / aviation / marine ---
+  ['nav', 0, 'GNSS L5 / E5a', 1164*M,   1189*M],
+  ['nav', 0, 'GPS L2',        1215*M,   1240*M],
+  ['nav', 0, 'GPS L1 / E1',   1563*M,   1587*M],
+  ['nav', 0, 'Airband',       108*M,    137*M],
+  ['nav', 0, 'Marine VHF',    156*M,    162.05*M],
+  ['nav', 0, 'ADS-B 1090',    1089*M,   1091*M],
+].map(b => ({ cat:b[0], r:b[1], name:b[2], lo:b[3], hi:b[4] }));
+
+/** `r` is 0 (worldwide), a region number, or a list of regions. */
+function inRegion(x){
+  return x.r === 0 || x.r === state.region ||
+         (Array.isArray(x.r) && x.r.indexOf(state.region) !== -1);
+}
+
+/* ------------------------------ channel plans ------------------------------ */
+
+const evenly = (startMHz, stepMHz, n, firstNo) => {
+  const out = [];
+  for (let i = 0; i < n; i++)
+    out.push({ f:(startMHz + i*stepMHz)*M, label:String((firstNo == null ? 1 : firstNo) + i) });
+  return out;
+};
+const byFreq = list => list.map(f => ({ f:f*M, label:String(f) }));
+
+// CB is not a regular grid: 3A/7A/11A/15A/19A are skipped, and 23/24/25 run out of order.
+const CB_CH = [
+  [1,26.965],[2,26.975],[3,26.985],[4,27.005],[5,27.015],[6,27.025],[7,27.035],[8,27.055],
+  [9,27.065],[10,27.075],[11,27.085],[12,27.105],[13,27.115],[14,27.125],[15,27.135],
+  [16,27.155],[17,27.165],[18,27.175],[19,27.185],[20,27.205],[21,27.215],[22,27.225],
+  [23,27.255],[24,27.235],[25,27.245],[26,27.265],[27,27.275],[28,27.285],[29,27.295],
+  [30,27.305],[31,27.315],[32,27.325],[33,27.335],[34,27.345],[35,27.355],[36,27.365],
+  [37,27.375],[38,27.385],[39,27.395],[40,27.405],
+].map(c => ({ f:c[1]*M, label:String(c[0]) }));
+
+const CHAN_SETS = [
+  // --- LoRaWAN ---
+  { name:'LoRaWAN EU868 uplink', cat:'ism', r:1, bw:125*K,
+    ch:byFreq([867.1, 867.3, 867.5, 867.7, 867.9, 868.1, 868.3, 868.5]) },
+  { name:'LoRaWAN EU868 RX2',    cat:'ism', r:1, bw:125*K, ch:[{ f:869.525*M, label:'RX2' }] },
+  { name:'LoRa/FSK 868.8',       cat:'ism', r:1, bw:250*K, ch:[{ f:868.8*M,   label:'FSK' }] },
+  { name:'LoRaWAN US915 uplink', cat:'ism', r:2, bw:125*K, ch:evenly(902.3, 0.2, 64, 0) },
+  { name:'LoRaWAN US915 downlink', cat:'ism', r:2, bw:500*K, ch:evenly(923.3, 0.6, 8, 0) },
+
+  // --- CB / PMR ---
+  { name:'CB 27 MHz', cat:'ism', r:0, bw:10*K, ch:CB_CH },
+  { name:'PMR446',    cat:'ism', r:1, bw:12.5*K, ch:evenly(446.00625, 0.0125, 16, 1) },
+
+  // --- Wi-Fi (20 MHz channel width) ---
+  { name:'Wi-Fi 2.4', cat:'wifi', r:0,  bw:20*M, ch:evenly(2412, 5, 11, 1) },
+  { name:'Wi-Fi 2.4', cat:'wifi', r:[1,3], bw:20*M, ch:evenly(2467, 5, 2, 12) },
+  { name:'Wi-Fi 2.4', cat:'wifi', r:3,  bw:20*M, ch:[{ f:2484*M, label:'14' }] },
+  { name:'Wi-Fi 5 (UNII-1)', cat:'wifi', r:0, bw:20*M, ch:[36,40,44,48].map(n => ({ f:(5000+n*5)*M, label:String(n) })) },
+  { name:'Wi-Fi 5 (UNII-2)', cat:'wifi', r:0, bw:20*M, ch:[52,56,60,64].map(n => ({ f:(5000+n*5)*M, label:String(n) })) },
+  { name:'Wi-Fi 5 (DFS)',    cat:'wifi', r:0, bw:20*M,
+    ch:[100,104,108,112,116,120,124,128,132,136,140,144].map(n => ({ f:(5000+n*5)*M, label:String(n) })) },
+  { name:'Wi-Fi 5 (UNII-3)', cat:'wifi', r:0, bw:20*M, ch:[149,153,157,161,165].map(n => ({ f:(5000+n*5)*M, label:String(n) })) },
+];
+
+/** Flattened channels for the enabled categories and region. */
+function channelsInView(lo, hi){
+  if (!state.channels) return [];
+  const out = [];
+  for (const s of CHAN_SETS){
+    if (!state.bands.has(s.cat) || !inRegion(s)) continue;
+    for (const c of s.ch){
+      const a = c.f - s.bw/2, b = c.f + s.bw/2;
+      if (b > lo && a < hi) out.push({ set:s.name, label:c.label, f:c.f, lo:a, hi:b });
+    }
+  }
+  return out;
+}
+/** Channels containing a frequency, nearest carrier first — 20 MHz Wi-Fi channels
+    overlap heavily, so "which one am I on" is answered by the closest centre. */
+function channelsAt(hz){
+  return channelsInView(hz, hz)
+    .filter(c => hz >= c.lo && hz <= c.hi)
+    .sort((a, b) => Math.abs(hz - a.f) - Math.abs(hz - b.f))
+    .slice(0, 3);
+}
+
+const BAND_CATS = [
+  ['ism',  'ISM / SRD'],
+  ['ham',  'Amateur'],
+  ['bc',   'Broadcast'],
+  ['cell', 'Cellular'],
+  ['wifi', 'Wi-Fi'],
+  ['nav',  'Nav / air / sea'],
+];
+
 /* ================================= state =================================== */
 
 const PALETTE = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
@@ -721,6 +931,9 @@ const state = {
   zoom: null,
   drag: null,
   seq: 0,
+  bands: new Set(['ism']),   // ISM on by default — the common case for this tool
+  region: 1,
+  channels: false,
 };
 
 const $ = s => document.querySelector(s);
@@ -740,6 +953,7 @@ function refreshTheme(){
   THEME = {
     surface:g('--surface-1'), ink:g('--ink'), ink2:g('--ink-2'), muted:g('--muted'),
     grid:g('--grid'), axis:g('--axis'), warn:g('--warning'), crit:g('--critical'),
+    band:g('--band'), bandLine:g('--band-line'),
     series: PALETTE.map(g),
   };
 }
@@ -817,6 +1031,29 @@ function plottable(){
   return visibleTraces().map(t => ({ t, s: seriesFor(t, state.quantity) })).filter(o => o.s);
 }
 
+/** First index with freq >= v (freq is ascending). */
+function lowerBound(f, n, v){
+  let lo = 0, hi = n;
+  while (lo < hi){ const m = (lo+hi) >> 1; if (f[m] < v) lo = m+1; else hi = m; }
+  return lo;
+}
+/**
+ * Index window covering the view plus one sample either side.
+ *
+ * Drawing every point at deep zoom pushes canvas coordinates to ±800000 px, where
+ * rendering degrades and whole paths get dropped — which looked like a trace vanishing.
+ * Keeping one sample beyond each edge means the line still enters and leaves the view
+ * correctly even when no sample falls inside it.
+ */
+function viewWindow(t, xd){
+  const f = t.data.freq, n = t.data.n;
+  if (!n) return null;
+  if (!xd) return { i0:0, i1:n-1, inside:n };
+  const a = lowerBound(f, n, xd.lo), b = lowerBound(f, n, xd.hi);
+  const i0 = Math.max(0, a-1), i1 = Math.min(n-1, b);
+  return { i0, i1, inside: Math.max(0, b-a) };
+}
+
 function sampleAt(t, hz){
   const f = t.data.freq, n = t.data.n;
   if (n === 0 || hz < f[0] || hz > f[n-1]) return -1;
@@ -829,7 +1066,8 @@ function sampleAt(t, hz){
 
 const PAD = { l:62, r:44, t:16, b:36 };
 
-function xDomain(){
+/** Full frequency extent of the visible traces, ignoring any zoom. */
+function dataExtent(){
   let lo = Infinity, hi = -Infinity;
   for (const t of visibleTraces()){
     if (!t.data.n) continue;
@@ -837,9 +1075,38 @@ function xDomain(){
     hi = Math.max(hi, t.data.freq[t.data.n-1]);
   }
   if (!isFinite(lo)) return null;
-  if (state.zoom) return { lo:state.zoom.lo, hi:state.zoom.hi };
   if (lo === hi){ lo -= 1; hi += 1; }
   return { lo, hi };
+}
+function xDomain(){
+  if (state.zoom) return { lo:state.zoom.lo, hi:state.zoom.hi };
+  return dataExtent();
+}
+
+/** Zoom keeping `f` pinned under the cursor. factor < 1 zooms in. */
+function zoomAbout(f, factor){
+  const cur = xDomain(), full = dataExtent();
+  if (!cur || !full || !isFinite(f)) return;
+  const logx = state.xscale === 'log' && cur.lo > 0 && f > 0;
+  let lo, hi;
+  if (logx){
+    const l0 = Math.log10(cur.lo), l1 = Math.log10(cur.hi), lf = Math.log10(f);
+    lo = Math.pow(10, lf + (l0-lf)*factor);
+    hi = Math.pow(10, lf + (l1-lf)*factor);
+  } else {
+    lo = f + (cur.lo - f)*factor;
+    hi = f + (cur.hi - f)*factor;
+  }
+  setZoom(lo, hi, full);
+}
+function setZoom(lo, hi, full){
+  full = full || dataExtent();
+  if (!full) return;
+  lo = Math.max(lo, full.lo); hi = Math.min(hi, full.hi);
+  if (!(hi > lo) || (hi - lo) < 1) return;                 // never below 1 Hz of span
+  const whole = lo <= full.lo && hi >= full.hi;
+  state.zoom = whole ? null : { lo, hi };
+  $('#btn-reset-zoom').hidden = !state.zoom;
 }
 
 function yDomain(items){
@@ -850,9 +1117,11 @@ function yDomain(items){
   const xd = xDomain();
   let lo = Infinity, hi = -Infinity;
   for (const { t, s } of items){
-    const f = t.data.freq;
-    for (let i=0;i<t.data.n;i++){
-      if (xd && (f[i] < xd.lo || f[i] > xd.hi)) continue;
+    // Same window the line is drawn from, so a zoom narrower than the sample spacing
+    // still scales to the segment crossing the view instead of finding nothing.
+    const w = viewWindow(t, xd);
+    if (!w) continue;
+    for (let i = w.i0; i <= w.i1; i++){
       for (const arr of [s.y, s.y2]){
         if (!arr) continue;
         const v = arr[i];
@@ -897,6 +1166,11 @@ function drawRect(){
   const X = hz => L + (((logx ? Math.log10(Math.max(hz,1e-12)) : hz) - lx0)/(lx1-lx0 || 1))*pw;
   const Y = v => B - ((v - yd.lo)/(yd.hi - yd.lo || 1))*ph;
   const invX = px => { const u = (px-L)/pw*(lx1-lx0)+lx0; return logx ? Math.pow(10,u) : u; };
+
+  // band and channel overlays sit behind the grid and traces
+  const bandRows = drawBands(ctx, X, L, R, T, B, xd);
+  const chanRows = drawChannels(ctx, X, L, R, T, B, xd, T + 2 + bandRows*BAND_ROW_H);
+  const annoH = bandRows*BAND_ROW_H + chanRows*CHAN_ROW_H;
 
   // grid
   ctx.save();
@@ -948,12 +1222,44 @@ function drawRect(){
   ctx.save();
   ctx.beginPath(); ctx.rect(L,T,pw,ph); ctx.clip();
   ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  let sparsest = Infinity;
+  const xlim = [L - pw, R + pw];
   for (const { t, s } of items){
     const col = traceColor(t);
-    drawLine(ctx, t, s.y, X, Y, col, DASHES[Math.floor(t.colorIdx/THEME.series.length) % DASHES.length], yd);
-    if (s.y2) drawLine(ctx, t, s.y2, X, Y, col, [6,3], yd);
+    const win = viewWindow(t, xd);
+    sparsest = Math.min(sparsest, win ? win.inside : Infinity);
+    drawLine(ctx, t, s.y, X, Y, col, DASHES[Math.floor(t.colorIdx/THEME.series.length) % DASHES.length], yd, win, xlim);
+    if (s.y2) drawLine(ctx, t, s.y2, X, Y, col, [6,3], yd, win, xlim);
+  }
+  // Zoomed in past the sweep resolution: show where the measurements actually are, so
+  // straight-line segments between them are not mistaken for measured detail.
+  if (sparsest <= 40){
+    for (const { t, s } of items){
+      const win = viewWindow(t, xd);
+      if (!win) continue;
+      ctx.fillStyle = traceColor(t);
+      for (let i = win.i0; i <= win.i1; i++){
+        for (const arr of [s.y, s.y2]){
+          if (!arr || !isFinite(arr[i])) continue;
+          ctx.beginPath(); ctx.arc(X(t.data.freq[i]), Y(arr[i]), 2.5, 0, 7); ctx.fill();
+        }
+      }
+    }
   }
   ctx.restore();
+
+  // Below one sample per screen there is nothing measured in view at all — say so,
+  // rather than letting a straight interpolating segment read as data.
+  if (sparsest < 2 && items.length){
+    const d0 = items[0].t.data;
+    const step = d0.n > 1 ? (d0.freq[d0.n-1]-d0.freq[0])/(d0.n-1) : 0;
+    ctx.save();
+    ctx.font = '10px ' + FONT;
+    ctx.fillStyle = THEME.muted;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'bottom';
+    ctx.fillText('zoomed past the ' + fmtFreq(step,3) + ' sweep step — the line between samples is drawn straight, not measured', L+6, B-6);
+    ctx.restore();
+  }
 
   // marker + hover
   const rf = readoutFreq();
@@ -970,7 +1276,7 @@ function drawRect(){
     ctx.restore();
   }
 
-  drawLegend(ctx, items, L, T, R);
+  drawLegend(ctx, items, L, T + annoH, R);
   if (isFinite(rf)) drawFreqPill(ctx, X(rf), B, rf);
   if (!items.length) noDataNote(ctx, (L+R)/2*2, (T+B)/2*2);
   ctx.restore();
@@ -980,6 +1286,131 @@ function drawRect(){
 
 const FONT = 'system-ui,-apple-system,"Segoe UI",sans-serif';
 
+/** Bands containing a frequency, narrowest first — the tightest allocation is the
+    most specific answer to "what is this?". Honours the enabled categories and region
+    so the readout always agrees with what is drawn. */
+function bandsAt(hz){
+  return BANDS
+    .filter(b => state.bands.has(b.cat) && inRegion(b) && hz >= b.lo && hz <= b.hi)
+    .sort((a, b) => (a.hi - a.lo) - (b.hi - b.lo));
+}
+
+/** Bands in view for the chosen categories and ITU region, widest first. */
+function bandsInView(lo, hi){
+  return BANDS
+    .filter(b => state.bands.has(b.cat) && inRegion(b) && b.hi > lo && b.lo < hi)
+    .sort((a, b) => (b.hi - b.lo) - (a.hi - a.lo));
+}
+
+/**
+ * Bands are drawn as labelled ribbons along the top with faint edge lines dropping
+ * through the plot — not as full-height fills. With adjacent allocations (LTE 800,
+ * SRD 868 and GSM 900 sit shoulder to shoulder) a fill shades nearly the whole chart
+ * and stops meaning anything. Returns the number of ribbon rows used.
+ */
+const BAND_ROW_H = 14;
+function drawBands(ctx, X, L, R, T, B, xd){
+  drawBands.hits = [];
+  if (!state.bands.size) return 0;
+  const list = bandsInView(xd.lo, xd.hi);
+  if (!list.length) return 0;
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(L, T, R-L, B-T); ctx.clip();
+  ctx.font = '10px ' + FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  const rows = [[], [], []];
+  let used = 0;
+  for (const b of list){
+    const x0 = Math.max(L, X(Math.max(b.lo, xd.lo)));
+    const x1 = Math.min(R, X(Math.min(b.hi, xd.hi)));
+    // Too narrow to read at this zoom: a 2px sliver is noise, not information. Zooming
+    // in brings it back.
+    if (!(x1 - x0 >= 4)) continue;
+
+    // edges, full height, very faint
+    ctx.strokeStyle = THEME.bandLine;
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3,3]);
+    ctx.beginPath();
+    if (X(b.lo) >= L) { ctx.moveTo(Math.round(x0)+0.5, T); ctx.lineTo(Math.round(x0)+0.5, B); }
+    if (X(b.hi) <= R) { ctx.moveTo(Math.round(x1)-0.5, T); ctx.lineTo(Math.round(x1)-0.5, B); }
+    ctx.stroke();
+    ctx.setLineDash([]);
+
+    // ribbon: pick the first row this span does not collide in
+    const label = b.name;
+    const tw = ctx.measureText(label).width;
+    const row = rows.findIndex(r => r.every(s => x1 <= s[0] || x0 >= s[1]));
+    if (row === -1) continue;
+    rows[row].push([x0, x1]);
+    used = Math.max(used, row+1);
+
+    const y = T + 2 + row*BAND_ROW_H;
+    drawBands.hits.push({ x0, x1, y0:y, y1:y + BAND_ROW_H-3, band:b });
+    ctx.fillStyle = THEME.band;
+    roundRect(ctx, x0, y, x1-x0, BAND_ROW_H-3, 3); ctx.fill();
+    ctx.strokeStyle = THEME.bandLine; ctx.lineWidth = 1; ctx.stroke();
+
+    if (x1 - x0 > tw + 8){
+      ctx.fillStyle = THEME.ink2;
+      ctx.fillText(label, (x0+x1)/2, y + (BAND_ROW_H-3)/2 + 0.5);
+    }
+  }
+  ctx.restore();
+  return used;
+}
+
+/**
+ * Channel plans, drawn in a row under the band ribbons. Same width rule as bands: a
+ * channel too narrow to see at the current zoom is skipped rather than smeared into a
+ * sliver, so a 125 kHz LoRaWAN channel appears once you are zoomed in far enough to
+ * actually place it.
+ */
+const CHAN_ROW_H = 12;
+function drawChannels(ctx, X, L, R, T, B, xd, yTop){
+  drawChannels.hits = [];
+  const list = channelsInView(xd.lo, xd.hi);
+  if (!list.length) return 0;
+
+  ctx.save();
+  ctx.beginPath(); ctx.rect(L, T, R-L, B-T); ctx.clip();
+  ctx.font = '9px ' + FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+
+  const y = yTop + 1, h = CHAN_ROW_H - 3;
+  let drew = 0;
+  for (const c of list){
+    const x0 = Math.max(L, X(Math.max(c.lo, xd.lo)));
+    const x1 = Math.min(R, X(Math.min(c.hi, xd.hi)));
+    if (!(x1 - x0 >= 3)) continue;
+    drew++;
+
+    ctx.fillStyle = THEME.band;
+    roundRect(ctx, x0, y, x1-x0, h, 2); ctx.fill();
+    ctx.strokeStyle = THEME.bandLine; ctx.lineWidth = 1; ctx.stroke();
+
+    // centre tick, so a wide channel still shows where its carrier sits
+    const cx = X(c.f);
+    if (cx > L && cx < R){
+      ctx.strokeStyle = THEME.bandLine;
+      ctx.beginPath();
+      ctx.moveTo(Math.round(cx)+0.5, y+h); ctx.lineTo(Math.round(cx)+0.5, y+h+5);
+      ctx.stroke();
+    }
+    drawChannels.hits.push({ x0, x1, y0:y, y1:y+h, ch:c });
+
+    const tw = ctx.measureText(c.label).width;
+    if (x1 - x0 > tw + 6){
+      ctx.fillStyle = THEME.ink2;
+      ctx.fillText(c.label, (x0+x1)/2, y + h/2 + 0.5);
+    }
+  }
+  ctx.restore();
+  return drew ? 1 : 0;
+}
+
 function tickDp(ticks){
   if (ticks.length < 2) return 1;
   const step = Math.abs(ticks[1]-ticks[0]);
@@ -988,23 +1419,43 @@ function tickDp(ticks){
   return Math.min(4, Math.max(1, Math.ceil(-Math.log10(step))));
 }
 
-function drawLine(ctx, t, ys, X, Y, color, dash, yd){
-  const f = t.data.freq, n = t.data.n;
+function drawLine(ctx, t, ys, X, Y, color, dash, yd, win, xlim){
+  const f = t.data.freq;
+  const i0 = win ? win.i0 : 0, i1 = win ? win.i1 : t.data.n-1;
+  const top = Y(yd.hi), bot = Y(yd.lo);
+  const XMIN = xlim ? xlim[0] : -1e5, XMAX = xlim ? xlim[1] : 1e5;
+
+  // Gather screen points first, splitting into runs at gaps.
+  const runs = []; let cur = [];
+  for (let i=i0;i<=i1;i++){
+    const v = ys[i];
+    let y = v === Infinity ? top-4 : v === -Infinity ? bot+4 : Y(v);
+    // Infinities (SWR at |G| >= 1) peg to the axis edge instead of breaking the line.
+    if (Number.isNaN(v) || !isFinite(y)){ if (cur.length) runs.push(cur); cur = []; continue; }
+    y = Math.max(top-1000, Math.min(bot+1000, y));
+    cur.push([X(f[i]), y]);
+  }
+  if (cur.length) runs.push(cur);
+
   ctx.save();
   ctx.strokeStyle = color;
   ctx.setLineDash(dash || []);
   ctx.beginPath();
-  let pen = false;
-  const top = Y(yd.hi), bot = Y(yd.lo);
-  for (let i=0;i<n;i++){
-    let v = ys[i];
-    if (Number.isNaN(v)){ pen = false; continue; }
-    const x = X(f[i]);
-    // Infinities (SWR at |G| >= 1) peg to the axis edge instead of breaking the line.
-    let y = v === Infinity ? top-4 : v === -Infinity ? bot+4 : Y(v);
-    if (!isFinite(y)){ pen = false; continue; }
-    y = Math.max(top-1000, Math.min(bot+1000, y));
-    if (pen) ctx.lineTo(x,y); else { ctx.moveTo(x,y); pen = true; }
+  for (const run of runs){
+    for (let k=0;k<run.length;k++){
+      let x = run[k][0], y = run[k][1];
+      // On a log axis at deep zoom the bracketing sample can be decades away, which puts
+      // x hundreds of thousands of pixels out — canvas silently drops such paths. Pull
+      // the endpoint onto a bounded margin, interpolating y along the segment so the
+      // slope through the visible area is unchanged.
+      if (x < XMIN || x > XMAX){
+        const nb = run[k === 0 ? 1 : k-1];
+        const bx = Math.min(XMAX, Math.max(XMIN, x));
+        if (nb && nb[0] !== x) y += (nb[1] - y) * ((bx - x) / (nb[0] - x));
+        x = bx;
+      }
+      if (k) ctx.lineTo(x,y); else ctx.moveTo(x,y);
+    }
   }
   ctx.stroke();
   ctx.restore();
@@ -1213,9 +1664,15 @@ function renderTable(){
   head += '<th class="fill"></th></tr></thead>';
 
   let body = '<tbody>';
-  const title = isFinite(rf)
+  let title = isFinite(rf)
     ? (state.hover != null ? 'Cursor — ' : 'Marker — ') + fmtFreq(rf)
     : 'Set a marker frequency or hover the chart';
+  if (isFinite(rf)){
+    const at = bandsAt(rf);
+    if (at.length) title += '  ·  in ' + at.map(b => b.name).join(', ');
+    const ch = channelsAt(rf);
+    if (ch.length) title += '  ·  ' + ch.map(c => c.set + ' ch ' + c.label).join(', ');
+  }
   body += '<tr class="grp"><td colspan="' + NC + '">' + esc(title) + '</td></tr>';
 
   for (const t of vis){
@@ -1315,7 +1772,12 @@ function renderList(){
       ? (d.measured.s21 ? '<span class="chip on" style="color:' + traceColor(t) + '"><span class="dash" style="border-top:2px dashed currentColor;background:none;height:0"></span>S21</span>'
                         : '<span class="chip na" title="S12/S22 columns are zero-filled by the NanoVNA">S21 not measured</span>')
       : '';
-    return '<div class="trace' + (t.visible ? '' : ' off') + '" data-id="' + t.id + '">' +
+    const params = t.live
+      ? '<span class="chip live"><span class="live-dot"></span>LIVE <span class="rate">' +
+          (live.rate ? live.rate.toFixed(1) + ' Hz' : '…') + '</span></span>' +
+        '<button class="btn tiny" data-act="freeze" title="Keep this sweep as a normal trace">Freeze</button>'
+      : '<span class="chip on" style="color:' + traceColor(t) + '"><span class="dash"></span>S11</span>' + s21;
+    return '<div class="trace' + (t.visible ? '' : ' off') + (t.live ? ' is-live' : '') + '" data-id="' + t.id + '">' +
       '<div class="trace-top">' +
         '<span class="swatch" data-act="vis" style="background:' + (t.visible ? traceColor(t) : 'transparent') + ';border-color:' + traceColor(t) + '"></span>' +
         '<span class="trace-name" data-act="vis" title="' + esc(t.name) + '">' + esc(t.name) + '</span>' +
@@ -1324,9 +1786,7 @@ function renderList(){
       '</div>' +
       '<div class="trace-meta">' + fmtFreq(d.freq[0],3) + ' – ' + fmtFreq(d.freq[d.n-1],3) +
         ' · ' + d.n + ' pts · ' + d.z0 + ' Ω</div>' +
-      '<div class="trace-params">' +
-        '<span class="chip on" style="color:' + traceColor(t) + '"><span class="dash"></span>S11</span>' + s21 +
-      '</div>' +
+      '<div class="trace-params">' + params + '</div>' +
     '</div>';
   }).join('');
 }
@@ -1340,7 +1800,11 @@ el.list.addEventListener('click', e => {
   const t = state.traces.find(x => x.id === id);
   if (!t) return;
   if (act.dataset.act === 'vis'){ t.visible = !t.visible; }
-  else if (act.dataset.act === 'del'){ state.traces = state.traces.filter(x => x.id !== id); }
+  else if (act.dataset.act === 'freeze'){ liveFreeze(); return; }
+  else if (act.dataset.act === 'del'){
+    if (t.live) liveStop('Live stopped — its trace was removed.', 'ok');
+    state.traces = state.traces.filter(x => x.id !== id);
+  }
   else if (act.dataset.act === 'save'){
     download(new Blob([t.captured], { type:'text/plain' }), t.name.replace(/[:\s]/g,'-'));
     toast('Saved ' + t.name.replace(/[:\s]/g,'-') + '.', 'ok');
@@ -1351,15 +1815,21 @@ el.list.addEventListener('click', e => {
 
 /* ================================ loading ================================== */
 
-function addFile(name, text){
+/** Reloading the same name replaces that trace in place, keeping its id, colour and
+    visibility — live mode rewrites one trace every frame through this path. */
+function addFile(name, text, quiet){
   const data = parseTouchstone(text, name);
-  const existing = state.traces.findIndex(t => t.name === name);
+  const i = state.traces.findIndex(t => t.name === name);
+  const prev = i >= 0 ? state.traces[i] : null;
   const tr = {
-    id: ++state.seq, name, data, visible:true,
-    colorIdx: existing >= 0 ? state.traces[existing].colorIdx : nextColorIdx(),
+    id: prev ? prev.id : ++state.seq,
+    name, data,
+    visible: prev ? prev.visible : true,
+    colorIdx: prev ? prev.colorIdx : nextColorIdx(),
+    live: prev ? !!prev.live : false,
   };
-  if (existing >= 0) state.traces[existing] = tr; else state.traces.push(tr);
-  if (data.warnings.length) toast(name + ': ' + data.warnings[0], 'warn');
+  if (prev) state.traces[i] = tr; else state.traces.push(tr);
+  if (!quiet && data.warnings.length) toast(name + ': ' + data.warnings[0], 'warn');
   return tr;
 }
 function nextColorIdx(){
@@ -1386,6 +1856,7 @@ $('#file-input').addEventListener('change', e => { loadFiles(e.target.files); e.
 
 $('#btn-clear').addEventListener('click', () => {
   if (!state.traces.length) return;
+  liveStop('Live stopped — all traces were removed.', 'ok');
   state.traces = []; state.zoom = null; redraw();
 });
 
@@ -1615,6 +2086,7 @@ async function vnaConnect(){
 }
 
 async function vnaDisconnect(){
+  liveStop();
   try { if (vna.reader) await vna.reader.cancel(); } catch (_){}
   await sleep(60);
   try { if (vna.writer){ vna.writer.releaseLock(); } } catch (_){}
@@ -1685,6 +2157,111 @@ async function vnaCapture(opts, onStep){
     try { await vnaCmd('resume', 6000); } catch (_){}
   }
 }
+
+/* ============================== live tuning ================================= */
+/*
+ * Sweeps continuously into one trace so an antenna can be tuned by hand while watching
+ * the dip move. S11 only: a lone "data 0" cannot tear across parameters the way an
+ * S11+S21 pair can, so the loop skips pause/resume entirely and just takes whatever the
+ * newest completed sweep holds. The frequency axis is read once and cached — it is the
+ * single biggest cost saving, and it only changes if the device is retuned.
+ *
+ * The ceiling is the VNA's own sweep time, not the serial link, so expect roughly one
+ * update per sweep: ~1-2 Hz at 301 points, quicker at 101.
+ */
+
+const LIVE_NAME = 'LIVE.s1p';
+const live = { on:false, freqs:null, rate:0, last:0 };
+
+function liveTrace(){ return state.traces.find(t => t.live); }
+function liveSetUi(){
+  const b = $('#btn-live');
+  b.textContent = live.on ? 'Stop live' : 'Live';
+  b.className = 'btn' + (live.on ? ' live-on' : '');
+}
+function liveBadge(){
+  const el = document.querySelector('.chip.live .rate');
+  if (el) el.textContent = live.rate ? live.rate.toFixed(1) + ' Hz' : '…';
+}
+
+function liveStart(){
+  if (!vnaSupported()){
+    toast('Live mode needs the Web Serial API — Chrome or Edge, over https:// or localhost.', 'warn');
+    return;
+  }
+  if (!vna.port){
+    toast('Connect first: press "Capture from VNA", then Connect.', 'warn');
+    return;
+  }
+  if (live.on) return;
+  live.on = true; live.freqs = null; live.rate = 0; live.last = 0;
+  liveSetUi();
+  toast('Live sweeping — adjust the antenna and watch the trace.', 'ok');
+  liveLoop();
+}
+
+function liveStop(msg, kind){
+  if (!live.on) return;
+  live.on = false;
+  liveSetUi();
+  renderList();
+  if (msg) toast(msg, kind || 'warn');
+}
+
+async function liveLoop(){
+  while (live.on){
+    // A hidden tab has its timers throttled to about 1 Hz, so frames would crawl and the
+    // serial traffic would be wasted. Idle until it is visible again.
+    if (document.hidden || vna.busy){ await sleep(250); continue; }
+    if (!vna.port){ liveStop('Live stopped — the VNA is no longer connected.'); return; }
+    try {
+      if (!live.freqs){
+        const s = await vnaReadSweep().catch(() => null);
+        if (s) vna.sweep = s;
+        live.freqs = (await vnaCmd('frequencies', 30000)).filter(l => /^\d+$/.test(l)).map(Number);
+        if (!live.freqs.length) throw new Error('the VNA returned no frequency points');
+      }
+      const s11 = vnaPairs(await vnaCmd('data 0', 30000), 'data 0');
+      // A changed point count means the device was retuned: re-read the axis, skip this frame.
+      if (s11.length !== live.freqs.length){ live.freqs = null; continue; }
+
+      const isFirst = !liveTrace();
+      const tr = addFile(LIVE_NAME, buildTouchstone(live.freqs, s11, null, { cal: vna.cal }), true);
+      tr.live = true;
+
+      const now = performance.now();
+      if (live.last){
+        const inst = 1000 / Math.max(1, now - live.last);
+        live.rate = live.rate ? live.rate*0.7 + inst*0.3 : inst;
+      }
+      live.last = now;
+
+      if (isFirst) renderList(); else liveBadge();
+      renderTable();
+      redrawCharts();
+    } catch (err){
+      liveStop('Live stopped: ' + err.message, 'err');
+      return;
+    }
+  }
+}
+
+/** Promote the current live frame to an ordinary, saveable trace. */
+function liveFreeze(){
+  const t = liveTrace();
+  if (!t) return;
+  const d = t.data, freqs = Array.from(d.freq), s11 = [];
+  for (let i = 0; i < d.n; i++) s11.push([d.S.s11.re[i], d.S.s11.im[i]]);
+  const p2 = v => String(v).padStart(2,'0'), now = new Date();
+  const name = 'VNA ' + p2(now.getHours()) + ':' + p2(now.getMinutes()) + ':' + p2(now.getSeconds()) + '.s1p';
+  const text = buildTouchstone(freqs, s11, null, { cal: vna.cal });
+  const tr = addFile(name, text);
+  tr.captured = text;
+  redraw();
+  toast('Froze ' + name + ' (' + tr.data.n + ' points).', 'ok');
+}
+
+$('#btn-live').addEventListener('click', () => { live.on ? liveStop() : liveStart(); });
 
 /* ---- capture dialog ---- */
 
@@ -1777,6 +2354,9 @@ function vnaEdited(){
 }
 
 $('#btn-vna').addEventListener('click', () => {
+  // One command stream: a manual capture or calibration must not interleave with the
+  // live loop's reads.
+  liveStop('Live stopped so the capture dialog can talk to the VNA.', 'ok');
   if (!vnaSupported()){
     toast('Live capture needs the Web Serial API — use Chrome or Edge, over https:// or localhost. ' +
           'From a file:// page it is unavailable; the capture-nanovna.ps1 script works there instead.', 'warn');
@@ -2140,14 +2720,71 @@ function canvasFreq(e){
   return m.invX(px);
 }
 
+/** A band ribbon or channel mark under the pointer, if any. Channels win: they sit on
+    top and are the more specific target. */
+function bandHitAt(e){
+  const r = el.rect.getBoundingClientRect();
+  const x = e.clientX - r.left, y = e.clientY - r.top;
+  const inside = h => x >= h.x0 && x <= h.x1 && y >= h.y0 && y <= h.y1;
+  return (drawChannels.hits || []).find(inside) || (drawBands.hits || []).find(inside) || null;
+}
+
 el.rect.addEventListener('pointermove', e => {
+  if (state.pan){
+    const dx = (e.clientX - el.rect.getBoundingClientRect().left) - state.pan.x;
+    panBy(dx);
+    redrawCharts(); return;
+  }
   if (state.drag){
     state.drag.x1 = e.clientX - el.rect.getBoundingClientRect().left;
     redrawCharts(); return;
   }
+  const hit = bandHitAt(e);
+  el.rect.style.cursor = hit ? 'zoom-in' : (e.shiftKey ? 'grab' : 'crosshair');
+  el.rect.title = !hit ? ''
+    : hit.ch
+      ? hit.ch.set + ' ch ' + hit.ch.label + '  ' + fmtFreq(hit.ch.f,5) + '  (click to zoom)'
+      : hit.band.name + '  ' + fmtFreq(hit.band.lo,4) + ' – ' + fmtFreq(hit.band.hi,4) + '  (click to zoom)';
   const f = canvasFreq(e);
   if (f !== state.hover){ state.hover = f; redrawCharts(); renderTable(); }
 });
+
+/** Shift the view by a pixel delta, in whichever space the axis is drawn. */
+function panBy(dx){
+  const p = state.pan, m = drawRect.map;
+  if (!p || !m) return;
+  const full = dataExtent();
+  if (!full) return;
+  const pw = m.R - m.L;
+  const logx = state.xscale === 'log' && p.lo > 0;
+  let lo, hi;
+  if (logx){
+    const l0 = Math.log10(p.lo), l1 = Math.log10(p.hi);
+    const d = (l1 - l0) * (dx / pw);
+    lo = Math.pow(10, l0 - d); hi = Math.pow(10, l1 - d);
+  } else {
+    const d = (p.hi - p.lo) * (dx / pw);
+    lo = p.lo - d; hi = p.hi - d;
+  }
+  // Keep the window inside the data instead of letting it drift off into blank space.
+  const span = hi - lo;
+  if (lo < full.lo){ lo = full.lo; hi = lo + span; }
+  if (hi > full.hi){ hi = full.hi; lo = hi - span; }
+  if (lo < full.lo) lo = full.lo;
+  state.zoom = { lo, hi };
+  $('#btn-reset-zoom').hidden = false;
+}
+
+el.rect.addEventListener('wheel', e => {
+  const m = drawRect.map;
+  if (!m) return;
+  const r = el.rect.getBoundingClientRect();
+  const px = e.clientX - r.left;
+  if (px < m.L || px > m.R) return;
+  e.preventDefault();
+  zoomAbout(m.invX(px), e.deltaY < 0 ? 0.82 : 1/0.82);
+  redrawCharts(); renderTable();
+}, { passive:false });
 el.rect.addEventListener('pointerleave', () => {
   if (state.hover != null){ state.hover = null; redrawCharts(); renderTable(); }
 });
@@ -2157,21 +2794,41 @@ el.rect.addEventListener('pointerdown', e => {
   if (!m) return;
   const x = e.clientX - el.rect.getBoundingClientRect().left;
   if (x < m.L || x > m.R) return;
-  state.drag = { x0:x, x1:x };
+  const cur = xDomain();
+  if (e.shiftKey && cur){
+    state.pan = { x, lo:cur.lo, hi:cur.hi };
+    el.rect.style.cursor = 'grabbing';
+  } else {
+    state.drag = { x0:x, x1:x };
+  }
   el.rect.setPointerCapture(e.pointerId);
 });
 el.rect.addEventListener('pointerup', e => {
   const d = state.drag;
   state.drag = null;
   const m = drawRect.map;
-  if (!d || !m) return;
   try { el.rect.releasePointerCapture(e.pointerId); } catch (_){}
+  if (state.pan){
+    state.pan = null;
+    el.rect.style.cursor = 'crosshair';
+    redraw();
+    return;
+  }
+  if (!d || !m) return;
+  // A click on a band ribbon frames that band — the quickest way to fill the chart
+  // with the allocation you care about.
+  const hit = Math.abs(d.x1 - d.x0) <= 6 ? bandHitAt(e) : null;
+  if (hit){
+    const t = hit.ch || hit.band;
+    // Channels are narrow, so they get a wider relative margin to stay readable.
+    const pad = (t.hi - t.lo) * (hit.ch ? 2 : 0.25);
+    setZoom(t.lo - pad, t.hi + pad);
+    redraw();
+    return;
+  }
   if (Math.abs(d.x1 - d.x0) > 6){
     const a = m.invX(Math.min(d.x0,d.x1)), b = m.invX(Math.max(d.x0,d.x1));
-    if (isFinite(a) && isFinite(b) && b > a){
-      state.zoom = { lo:a, hi:b };
-      $('#btn-reset-zoom').hidden = false;
-    }
+    if (isFinite(a) && isFinite(b) && b > a) setZoom(a, b);
   } else {
     const f = canvasFreq(e);
     if (f != null){
@@ -2186,14 +2843,46 @@ el.rect.addEventListener('pointerup', e => {
 });
 el.rect.addEventListener('dblclick', () => {
   state.zoom = null;
-  $('#btn-reset-zoom').hidden = true;
   if ('_prevMarker' in state){
     state.marker = state._prevMarker;
     $('#mk-freq').value = isFinite(state.marker) ? fmtFreq(state.marker) : '';
   }
   redraw();
 });
-$('#btn-reset-zoom').addEventListener('click', () => { state.zoom = null; $('#btn-reset-zoom').hidden = true; redraw(); });
+$('#btn-reset-zoom').addEventListener('click', () => { state.zoom = null; redraw(); });
+
+/* ---- band controls ---- */
+
+function renderBandChips(){
+  $('#band-chips').innerHTML = BAND_CATS.map(([cat, label]) => {
+    const n = BANDS.filter(b => b.cat === cat && inRegion(b)).length;
+    return '<span class="chip' + (state.bands.has(cat) ? ' on' : '') + '" data-cat="' + cat +
+      '" title="' + n + ' bands in region ' + state.region + '">' + esc(label) + '</span>';
+  }).join('');
+}
+$('#band-chips').addEventListener('click', e => {
+  const c = e.target.closest('[data-cat]');
+  if (!c) return;
+  const cat = c.dataset.cat;
+  if (state.bands.has(cat)) state.bands.delete(cat); else state.bands.add(cat);
+  renderBandChips();
+  redrawCharts();
+});
+$('#bands-none').addEventListener('click', () => {
+  if (!state.bands.size) return;
+  state.bands.clear();
+  renderBandChips();
+  redrawCharts();
+});
+$('#band-region').addEventListener('change', e => {
+  state.region = parseInt(e.target.value, 10);
+  renderBandChips();
+  redrawCharts(); renderTable();
+});
+$('#band-channels').addEventListener('change', e => {
+  state.channels = e.target.checked;
+  redrawCharts(); renderTable();
+});
 
 function segment(sel, fn){
   $(sel).addEventListener('click', e => {
@@ -2262,17 +2951,34 @@ function applySnap(quiet){
 
 /* ================================= theme =================================== */
 
+/* Dark is the default; the cycle is dark -> light -> follow the OS. "auto" has no look
+   of its own, so the tooltip is the only way to tell which mode you are in. */
+const THEME_LABEL = { dark:'Dark', light:'Light', auto:'Following your system setting' };
+function setThemeTitle(){
+  const cur = document.documentElement.getAttribute('data-theme') || 'dark';
+  $('#btn-theme').title = 'Theme: ' + (THEME_LABEL[cur] || cur) + ' — click to change';
+}
+$('#btn-sidebar').addEventListener('click', () => {
+  const sb = $('#sidebar');
+  sb.hidden = !sb.hidden;
+  $('#btn-sidebar').title = (sb.hidden ? 'Show' : 'Hide') + ' the side panel';
+  $('#btn-sidebar').classList.toggle('primary', sb.hidden);
+  redrawCharts();
+});
+
 $('#btn-theme').addEventListener('click', () => {
   const cur = document.documentElement.getAttribute('data-theme');
   const next = cur === 'dark' ? 'light' : cur === 'light' ? 'auto' : 'dark';
   document.documentElement.setAttribute('data-theme', next);
   try { localStorage.setItem('vna-theme', next); } catch (_){}
+  setThemeTitle();
   refreshTheme(); redraw();
 });
 try {
   const saved = localStorage.getItem('vna-theme');
   if (saved) document.documentElement.setAttribute('data-theme', saved);
 } catch (_){}
+setThemeTitle();
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { refreshTheme(); redraw(); });
 
 /* ================================ exports ================================== */
@@ -2341,6 +3047,7 @@ function redrawCharts(){
 function redraw(){
   const has = state.traces.length > 0;
   $('#btn-csv').disabled = $('#btn-png').disabled = !has;
+  $('#btn-reset-zoom').hidden = !state.zoom;
   if (state.snap) applySnap(true);
   renderList();
   renderTable();
@@ -2352,6 +3059,7 @@ new ResizeObserver(() => redrawCharts()).observe(el.smithBox);
 window.addEventListener('resize', redrawCharts);
 
 refreshTheme();
+renderBandChips();
 redraw();
 </script>
 </body>

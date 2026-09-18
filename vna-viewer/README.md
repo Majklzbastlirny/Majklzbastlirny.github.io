@@ -65,7 +65,9 @@ always visible before you capture or calibrate rather than discovered afterwards
   across the visible traces.
 
 The table under the chart shows, per trace, the values at the marker plus a summary row:
-best match frequency, its SWR, and the −10 dB bandwidth around it.
+best match frequency, its SWR, and the −10 dB bandwidth around it. Its heading also names
+any **band** the marker falls in (`Marker — 868 MHz · in SRD 868 (LoRa)`), narrowest
+allocation first, using the categories and region enabled in the Bands panel.
 
 ### Axes
 
@@ -73,7 +75,102 @@ best match frequency, its SWR, and the −10 dB bandwidth around it.
   unreadable on a linear axis.
 - **Y**: auto or manual min/max, plus an optional dashed **limit line** (e.g. `-10` on
   return loss, or `2` on SWR).
-- **Drag horizontally** on the chart to zoom into a frequency range; **double-click** to reset.
+
+### Zooming, panning and screen space
+
+| Action | Does |
+|---|---|
+| **Scroll wheel** on the chart | zoom in / out, keeping the frequency under the cursor pinned |
+| **Drag horizontally** | zoom to the dragged frequency range |
+| **Click a band ribbon** | frame that band (plus 25 % margin) — the quickest way to fill the chart with one allocation |
+| **Shift + drag** | pan the view |
+| **Double-click**, or **Reset zoom** | back to the full sweep |
+| **☰** (top left) | collapse the side panel |
+
+Zoom and pan are both clamped to the swept data, so you cannot drift off into empty space,
+and zooming out far enough simply restores the full view.
+
+#### Zooming past the sweep resolution
+
+A sweep only holds the points it measured — 101 points over 800–900 MHz is one every
+1 MHz — so zooming closer than that shows the straight line drawn *between* samples, not
+finer detail. The viewer is explicit about it rather than pretending otherwise:
+
+- Once samples get sparse on screen, each **measured point is marked with a dot**, so you
+  can see exactly where real data exists.
+- Below one sample per screen, a note appears: *zoomed past the 1 MHz sweep step — the
+  line between samples is drawn straight, not measured.*
+
+**To actually get more resolution, re-sweep rather than interpolate.** Open
+**Capture from VNA**, set a narrower span (say 867–869 MHz) and a higher point count, and
+capture — that is real measured data at the finer spacing. Interpolating in the viewer
+would only invent numbers the VNA never measured.
+
+On a small screen the side panel and the Smith chart together can leave the plot quite
+narrow. **☰** hides the panel (worth ~280 px), the **Smith chart** checkbox frees another
+~390 px, and clicking a band ribbon zooms straight to the part you care about.
+
+### Band overlays
+
+The **Bands** panel marks known allocations on the chart as labelled ribbons along the top,
+with dashed lines dropping at each band edge — so you can see at a glance whether a dip
+actually lands inside the band you care about. Six categories toggle independently:
+
+| Category | Covers |
+|---|---|
+| **ISM / SRD** | 6.78, 13.56 (NFC), 27 (CB), 40.68, 169, 433, 868 (LoRa), 915, 2.45, 5.8, 24 GHz, PMR446 |
+| **Amateur** | 160 m through 13 cm, IARU band edges |
+| **Broadcast** | longwave, MW/AM, FM (87.5–108, plus OIRT and Japan), DAB III, TV UHF |
+| **Cellular** | LTE 800, GSM/LTE 900 / 1800, UMTS 2100, LTE 2600, 5G n78, and US 850 / PCS 1900 |
+| **Wi-Fi** | 2.4, 5 GHz low and high, 6E |
+| **Nav / air / sea** | GPS L1 / L2, GNSS L5, airband, marine VHF, ADS-B |
+
+**Allocations are region-specific, so there is a region selector.** This is not cosmetic:
+the "868 MHz" SRD band is ITU **Region 1** (Europe, Africa) and its Region 2 (Americas)
+counterpart is the 902–928 MHz ISM band. Showing both at once would be actively
+misleading, so each band is tagged and only the ones valid for the selected region are
+drawn. Switching an 800–900 MHz view from Region 1 to Region 2 replaces SRD 868 and the
+European cellular bands with Cellular 850.
+
+Bands too narrow to read at the current zoom are omitted rather than drawn as
+uninformative slivers — zoom in and they reappear.
+
+#### Channels
+
+Tick **Channels** to draw channel plans in a row beneath the band ribbons, for the
+categories you have enabled:
+
+| Plan | Channels |
+|---|---|
+| **LoRaWAN EU868** | the 8 standard uplink channels (867.1–868.5, 125 kHz), 868.8 FSK (250 kHz), 869.525 RX2 |
+| **LoRaWAN US915** | 64 × 125 kHz uplink from 902.3, 8 × 500 kHz downlink from 923.3 |
+| **CB 27 MHz** | all 40 channels, including the skipped A-channels and the out-of-order 23/24/25 |
+| **PMR446** | 16 × 12.5 kHz |
+| **Wi-Fi 2.4** | 1–13 (14 in Region 3), 20 MHz wide |
+| **Wi-Fi 5** | UNII-1, UNII-2, DFS and UNII-3 |
+
+Channel marks carry a centre tick, so you can see where the carrier sits inside the
+channel width. **Clicking one zooms to it**, and the marker readout names it —
+`Marker — 868.1 MHz · in SRD 868 (LoRa) · LoRaWAN EU868 uplink ch 868.1`.
+
+Because 2.4 GHz Wi-Fi channels are 20 MHz wide on 5 MHz spacing they genuinely overlap,
+so the readout lists up to three, **nearest carrier first** (2437 MHz reads `ch 6, ch 5,
+ch 7`). A 125 kHz LoRaWAN channel is only ~0.1 % of an 800–900 MHz sweep, so channels
+appear once you zoom in far enough to place them — the same width rule the bands use.
+
+Note that **CB is drawn as its own band** (26.965–27.405 MHz) as well as the ITU ISM 27
+allocation (26.957–27.283) it overlaps: CB channels 24–40 sit above the ISM band.
+
+> These overlays are a **visual guide, not a regulatory reference.** National allocations
+> vary within a region, carry conditions this chart does not show (power limits, duty
+> cycle, licensing), and change over time. Check your national regulator before relying
+> on them.
+
+### Theme
+
+Dark by default. The button in the top right cycles **dark → light → follow the system
+setting**, and remembers your choice per browser. Its tooltip names the current mode, since
+"follow the system setting" has no look of its own.
 
 ### Export
 
@@ -105,6 +202,29 @@ prompt, then **Capture sweep**.
 The dialog shows the sweep currently on the device, re-read each time you open it. Tick
 **Also capture S21** for a 2-port capture. The sweep is paused while the arrays are read
 and resumed afterwards, so S11 and S21 come from the same pass.
+
+### Live tuning
+
+**Live** in the header sweeps continuously into a single `LIVE.s1p` trace, so you can trim
+an antenna with one hand and watch the dip move. The marker readout updates with it — park
+a marker on 868 MHz and watch SWR fall as you cut. Press **Freeze** on the live trace to
+keep the current sweep as an ordinary (saveable) trace; live keeps running, so you can
+collect a series of snapshots as you go.
+
+Notes on how it behaves:
+
+- **S11 only.** Antenna tuning is a reflection measurement, and reading a single array
+  means there is nothing to tear across parameters — so the loop skips the pause/resume
+  the one-shot capture uses, and just takes the newest completed sweep.
+- **Expect about one update per sweep** — roughly 1–2 Hz at 301 points, quicker at 101.
+  The limit is the VNA's own sweep time, not the serial link.
+- The frequency axis is read **once** and cached; it is re-read only if the point count
+  changes, which is how retuning the device mid-session is detected.
+- The loop idles while the browser tab is hidden (background tabs have their timers
+  throttled to about 1 Hz, so it would only crawl and waste serial traffic).
+- It stops on disconnect, on removing the live trace, and when the capture dialog is
+  opened — one command stream, so a manual capture or a calibration never interleaves
+  with it.
 
 ### Presets and calibration
 
@@ -290,9 +410,15 @@ Then open `http://localhost:8765`.
 ## Files
 
 ```
-index.html           the entire application
-Samples/             example sweeps
-Samples/index.json   manifest listing the sample filenames
-make-manifest.js     regenerates Samples/index.json
-capture-nanovna.ps1  pulls a live sweep off the VNA over USB serial
+index.html             the entire application
+Samples/               example sweeps
+Samples/index.json     manifest listing the sample filenames
+make-manifest.js       regenerates Samples/index.json
+capture-nanovna.ps1    pulls a live sweep off the VNA over USB serial
+tools/vna-console.ps1  sends console commands to the VNA and prints the replies
+test/parser.test.js    Touchstone parser tests — `node test/parser.test.js`
+docs.md                architecture, internals and the serial protocol reference
+CLAUDE.md              notes for Claude Code working in this repo
 ```
+
+Only `index.html` and `Samples/` are needed to deploy — the rest are development tools.

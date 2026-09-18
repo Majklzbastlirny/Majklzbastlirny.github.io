@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Capture a live sweep from a NanoVNA over USB serial and write a Touchstone file.
 

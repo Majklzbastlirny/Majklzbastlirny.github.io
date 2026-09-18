@@ -154,8 +154,10 @@ The app parses Sprint Layout `.lay6` binaries entirely client-side and renders t
 `C:\Users\Michal\Documents\VNA_Viewer`. Same rule as `sprint-ibom`: change it upstream and
 re-sync; edits made directly here are lost on the next sync.
 
-Published subset — upstream also has `make-manifest.js`, `.gitignore`, `.nojekyll` and
-`.claude/`, none of which belong on the site:
+Published subset. Upstream also carries `make-manifest.js`, `docs.md`, `CLAUDE.md`, `test/`,
+`tools/`, `.gitignore`, `.nojekyll` and `.claude/` — none are referenced by the app and none
+belong on the site. `docs.md` is user-facing prose but nothing links to it, so it stays
+upstream; `README.md` already covers the same ground for anyone browsing the repo.
 
 ```
 index.html            the whole app, fully inlined (no external CSS/JS at all)
@@ -167,9 +169,12 @@ README.md             upstream docs
 Re-sync procedure:
 1. `cp <upstream>/{index.html,README.md,capture-nanovna.ps1} vna-viewer/` and
    `cp -r <upstream>/Samples vna-viewer/`
-2. Re-add the back link — the *only* local modification. Immediately after the `  <header>`
-   line in `vna-viewer/index.html`, insert:
-   `    <a href="../index.html" class="back-to-tools" style="font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap;align-self:center;" title="Back to Tools">&larr; Tools</a>`
+2. Re-add the back link — the *only* local modification. Insert it as the first child of the
+   brand block: immediately after the `    <div class="brand">` line in
+   `vna-viewer/index.html` (4-space indent, exactly one match — grep to confirm), insert:
+   `      <a href="../index.html" class="back-to-tools" style="font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap;" title="Back to Tools">&larr; Tools</a>`
+   It used to go after `  <header>`, but the header now leads with the sidebar toggle, which
+   should stay hard-left. Inside `.brand` it baseline-aligns with the title.
 3. `git diff` to confirm nothing else moved, then commit and push.
 
 Things that will bite you:
