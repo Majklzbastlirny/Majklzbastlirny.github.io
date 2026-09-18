@@ -6,8 +6,8 @@ Guidance for Claude Code (and humans) working on this repo.
 
 A static site (deployed automatically from `main`, no build step) hosting a collection of
 independent, self-contained browser tools. Most tools are a single HTML
-file with inline CSS/JS. `sprint-ibom` and `vna-viewer` are vendored from external projects
-and ship extra files next to `index.html` (see Per-tool notes).
+file with inline CSS/JS. `sprint-ibom`, `vna-viewer` and `etcs-dmi` are vendored from external
+projects and ship extra files next to `index.html` (see Per-tool notes).
 The owner works railway/ETCS commissioning and electronics benches — tools get used offline,
 on bench laptops and phones, sometimes from `file://`. Portability and zero dependencies are
 features, not accidents.
@@ -26,6 +26,7 @@ orientation/          orientation/motion sensor lab
 sensorcalc/           temperature sensor calculator (has its own CLAUDE.md + validate.mjs)
 sprint-ibom/          Interactive BOM for Sprint Layout — VENDORED from an external repo, see notes
 vna-viewer/           NanoVNA Touchstone viewer — VENDORED from an external repo, see notes
+etcs-dmi/             ETCS DMI symbol catalogue — VENDORED, published subset only, see notes
 *.html at root        redirect stubs (meta refresh + location.replace) from the old flat layout
 ```
 
@@ -183,6 +184,39 @@ Things that will bite you:
   `prefers-color-scheme: dark` block and a manual light/dark toggle in the header. So it follows
   the OS rather than being dark by default, and is a white page for a light-mode user. Left as
   upstream wrote it; forcing dark would mean a second local modification to re-apply every sync.
+
+### etcs-dmi
+**Vendored copy — do not edit here.** Upstream source is
+`C:\Users\Michal\Documents\ETCS_WebTool` (note: the folder name says WebTool, but this is the DMI
+symbol catalogue, nothing to do with `etcs`/`etcs-v2`, which are the inclinometer helpers).
+
+Upstream is ~8 MB / 1408 files; **only ~1.2 MB / 185 files are published.** Ship exactly this:
+
+```
+index.html   css/   js/   assets/   README.md
+```
+
+Deliberately NOT published:
+- `index006_-_ERA_ERTMS_015560_v400/` (4.2 MB) — the source extract, including the original
+  2.7 MB ERA spec PDF. It is source material, and there is no reason to re-host the spec.
+- `alstom/` (2.2 MB, 1037 files) — not referenced by any runtime code. Verified by grep.
+- `tools/` — build-time Python/JS (`extract_pdf.py`, `convert_bmps.py`, `verify_*`).
+
+Re-sync procedure:
+1. `cp <upstream>/{index.html,README.md} etcs-dmi/` and
+   `cp -r <upstream>/{css,js,assets} etcs-dmi/`
+2. Re-add the back link — the *only* local modification. Immediately after the
+   `<header class="app">` line in `etcs-dmi/index.html`, insert:
+   `  <a href="../index.html" class="back-to-tools" style="display:inline-block;margin:0 0 6px;font-size:12px;color:var(--dmi-medgrey);text-decoration:none;" title="Back to Tools">&larr; Tools</a>`
+3. `git diff` to confirm nothing else moved, then commit and push.
+
+Notes:
+- Images are built as `assets/symbols/<category>/<file>` at runtime, so the whole `assets/` tree
+  must come across together. After a sync, load the page and check for broken images — the quick
+  test is `[...document.querySelectorAll('img')].filter(i => i.complete && !i.naturalWidth).length`,
+  which must be 0 (171 images on the grid, plus more inside the detail dialog).
+- Attribution to ERA is in the page footer and in `js/app.js` / `js/i18n_cs.js`. Keep it.
+- EN/CZ toggle is its own `i18n_cs.js`, unrelated to `etcs-v2`'s `data-i18n` system.
 
 ## Git / deploy
 
