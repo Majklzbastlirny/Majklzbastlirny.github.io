@@ -6,7 +6,8 @@ Guidance for Claude Code (and humans) working on this repo.
 
 A static site (deployed automatically from `main`, no build step) hosting a collection of
 independent, self-contained browser tools. Most tools are a single HTML
-file with inline CSS/JS; `sprint-ibom` is a vendored multi-file exception (see Per-tool notes).
+file with inline CSS/JS. `sprint-ibom` and `vna-viewer` are vendored from external projects
+and ship extra files next to `index.html` (see Per-tool notes).
 The owner works railway/ETCS commissioning and electronics benches — tools get used offline,
 on bench laptops and phones, sometimes from `file://`. Portability and zero dependencies are
 features, not accidents.
@@ -24,6 +25,7 @@ fluke-postscript/     older Fluke viewer — legacy, unlisted on landing page
 orientation/          orientation/motion sensor lab
 sensorcalc/           temperature sensor calculator (has its own CLAUDE.md + validate.mjs)
 sprint-ibom/          Interactive BOM for Sprint Layout — VENDORED from an external repo, see notes
+vna-viewer/           NanoVNA Touchstone viewer — VENDORED from an external repo, see notes
 *.html at root        redirect stubs (meta refresh + location.replace) from the old flat layout
 ```
 
@@ -145,6 +147,42 @@ files are local to the tool folder — no CDNs, no external requests, so the int
 
 Upstream keeps `test-boards/`, `tools/` and its own docs; **only `app/` is published.**
 The app parses Sprint Layout `.lay6` binaries entirely client-side and renders to inline SVG.
+
+### vna-viewer
+**Vendored copy — do not edit here.** Upstream source is
+`C:\Users\Michal\Documents\VNA_Viewer`. Same rule as `sprint-ibom`: change it upstream and
+re-sync; edits made directly here are lost on the next sync.
+
+Published subset — upstream also has `make-manifest.js`, `.gitignore`, `.nojekyll` and
+`.claude/`, none of which belong on the site:
+
+```
+index.html            the whole app, fully inlined (no external CSS/JS at all)
+Samples/              bundled .s1p/.s2p sweeps + index.json manifest
+capture-nanovna.ps1   named in a UI toast, so it must resolve as a URL
+README.md             upstream docs
+```
+
+Re-sync procedure:
+1. `cp <upstream>/{index.html,README.md,capture-nanovna.ps1} vna-viewer/` and
+   `cp -r <upstream>/Samples vna-viewer/`
+2. Re-add the back link — the *only* local modification. Immediately after the `  <header>`
+   line in `vna-viewer/index.html`, insert:
+   `    <a href="../index.html" class="back-to-tools" style="font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap;align-self:center;" title="Back to Tools">&larr; Tools</a>`
+3. `git diff` to confirm nothing else moved, then commit and push.
+
+Things that will bite you:
+- **`Samples/` is loaded with `fetch()`**, so the Samples button needs a web server and is
+  correctly dead on `file://` — the app already detects this and shows a toast telling the user
+  to drag the folder in instead. Don't "fix" that.
+- **`Samples/index.json` is a generated manifest.** If samples are added or removed, regenerate
+  it upstream with `make-manifest.js`; the app reads the manifest, not the directory.
+- **Live capture uses Web Serial** — Chrome/Edge over HTTPS or localhost only, same constraint
+  as `fluke`. Fine on tools.michaels-lab.com; unavailable from `file://`.
+- **Deviates from convention 7 (dark theme).** It defaults to a light palette, with a
+  `prefers-color-scheme: dark` block and a manual light/dark toggle in the header. So it follows
+  the OS rather than being dark by default, and is a white page for a light-mode user. Left as
+  upstream wrote it; forcing dark would mean a second local modification to re-apply every sync.
 
 ## Git / deploy
 

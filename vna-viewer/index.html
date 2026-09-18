@@ -1,0 +1,2358 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="auto">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NanoVNA Viewer</title>
+<style>
+:root{
+  color-scheme: light;
+  --surface-1:#fcfcfb; --plane:#f9f9f7;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --border:rgba(11,11,11,0.10);
+  --hover:rgba(11,11,11,0.05); --active:rgba(11,11,11,0.09);
+  --good:#0ca30c; --warning:#fab219; --critical:#d03b3b;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a; --s4:#eda100;
+  --s5:#e87ba4; --s6:#008300; --s7:#4a3aa7; --s8:#e34948;
+  --radius:7px;
+  --font:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --surface-1:#1a1a19; --plane:#0d0d0d;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,0.10);
+    --hover:rgba(255,255,255,0.06); --active:rgba(255,255,255,0.11);
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+    --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --surface-1:#1a1a19; --plane:#0d0d0d;
+  --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --border:rgba(255,255,255,0.10);
+  --hover:rgba(255,255,255,0.06); --active:rgba(255,255,255,0.11);
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70; --s4:#c98500;
+  --s5:#d55181; --s6:#008300; --s7:#9085e9; --s8:#e66767;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{margin:0;background:var(--plane);color:var(--ink);font:13px/1.45 var(--font);
+  -webkit-font-smoothing:antialiased;overflow:hidden}
+button,input,select{font:inherit;color:inherit}
+h1{margin:0;font-weight:600}
+::selection{background:var(--s1);color:#fff}
+
+#app{display:flex;flex-direction:column;height:100%}
+header{display:flex;align-items:center;gap:10px;padding:9px 14px;
+  background:var(--surface-1);border-bottom:1px solid var(--border);flex:none}
+.brand{display:flex;align-items:baseline;gap:8px;margin-right:auto;min-width:0}
+.brand h1{font-size:14px;letter-spacing:-0.01em;white-space:nowrap}
+.brand span{font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.btn{background:var(--surface-1);border:1px solid var(--border);border-radius:var(--radius);
+  padding:5px 11px;cursor:pointer;color:var(--ink-2);white-space:nowrap;
+  transition:background .12s,color .12s}
+.btn:hover{background:var(--hover);color:var(--ink)}
+.btn:active{background:var(--active)}
+.btn.primary{background:var(--s1);border-color:transparent;color:#fff;font-weight:500}
+.btn.primary:hover{filter:brightness(1.08);color:#fff}
+.btn.icon{padding:5px 8px;line-height:1}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn[disabled]:hover{background:var(--surface-1);color:var(--ink-2)}
+
+main{display:flex;flex:1;min-height:0}
+
+#sidebar{width:278px;flex:none;background:var(--surface-1);
+  border-right:1px solid var(--border);display:flex;flex-direction:column;min-height:0}
+.panel{border-bottom:1px solid var(--border);padding:11px 13px;flex:none}
+.panel-h{display:flex;align-items:center;gap:6px;font-size:10.5px;font-weight:600;
+  letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+.panel-h .count{margin-left:auto;font-weight:400;letter-spacing:0;text-transform:none;font-size:11px}
+#traces-panel{flex:1;min-height:0;display:flex;flex-direction:column;overflow:hidden;border-bottom:none}
+#trace-list{overflow-y:auto;margin:0 -13px -11px;padding:0 13px 11px;flex:1}
+
+.trace{border:1px solid var(--border);border-radius:var(--radius);padding:7px 8px;margin-bottom:6px;
+  background:var(--plane)}
+.trace.off{opacity:.45}
+.trace-top{display:flex;align-items:center;gap:7px}
+.swatch{width:11px;height:11px;border-radius:3px;flex:none;cursor:pointer;
+  border:1px solid var(--border)}
+.trace-name{font-size:12px;font-weight:500;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;flex:1;cursor:pointer;font-variant-numeric:tabular-nums}
+.trace-meta{font-size:10.5px;color:var(--muted);margin:3px 0 0 18px;
+  font-variant-numeric:tabular-nums}
+.trace-params{display:flex;gap:5px;margin:6px 0 0 18px;flex-wrap:wrap}
+.chip{font-size:10.5px;padding:2px 7px;border-radius:99px;border:1px solid var(--border);
+  background:var(--surface-1);color:var(--muted);cursor:pointer;user-select:none;
+  display:inline-flex;align-items:center;gap:4px}
+.chip:hover{background:var(--hover)}
+.chip.on{color:var(--ink);border-color:currentColor}
+.chip.on .dash{opacity:1}
+.chip.na{opacity:.4;cursor:not-allowed}
+.chip.na:hover{background:var(--surface-1)}
+.dash{width:13px;height:2px;border-radius:1px;background:currentColor;opacity:.4;flex:none}
+.x{margin-left:auto;color:var(--muted);cursor:pointer;padding:0 4px;border-radius:4px;
+  font-size:14px;line-height:1;border:0;background:none}
+.x:hover{background:var(--hover);color:var(--critical)}
+
+.empty{color:var(--muted);font-size:12px;text-align:center;padding:22px 10px;line-height:1.65}
+
+.field{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.field:last-child{margin-bottom:0}
+.field label{font-size:11.5px;color:var(--ink-2);flex:none;width:54px}
+.field input[type=text],.field select{
+  flex:1;min-width:0;background:var(--plane);border:1px solid var(--border);
+  border-radius:5px;padding:4px 7px;font-size:12px;font-variant-numeric:tabular-nums}
+.field input:focus,.field select:focus{outline:2px solid var(--s1);outline-offset:-1px}
+.seg{display:flex;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;flex:none}
+.seg button{background:transparent;border:0;padding:4px 10px;cursor:pointer;
+  color:var(--muted);font-size:11.5px;border-right:1px solid var(--border)}
+.seg button:last-child{border-right:0}
+.seg button:hover{background:var(--hover)}
+.seg button.on{background:var(--s1);color:#fff;font-weight:500}
+.check{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--ink-2);cursor:pointer}
+.check input{accent-color:var(--s1);margin:0}
+
+#content{flex:1;display:flex;flex-direction:column;min-width:0;min-height:0}
+#toolbar{display:flex;align-items:center;gap:9px;padding:8px 13px;background:var(--surface-1);
+  border-bottom:1px solid var(--border);flex:none;flex-wrap:wrap}
+.tb-label{font-size:10.5px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--muted)}
+.sep{width:1px;height:18px;background:var(--border)}
+#charts{flex:1;display:flex;min-height:0;overflow:hidden}
+.chart-box{position:relative;min-width:0;min-height:0;background:var(--surface-1)}
+#rect-box{flex:1}
+#smith-box{width:394px;flex:none;border-left:1px solid var(--border);display:none}
+#smith-box.on{display:block}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+#rect-canvas{cursor:crosshair}
+.chart-empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  color:var(--muted);font-size:13px;text-align:center;padding:24px;pointer-events:none;
+  flex-direction:column;gap:6px}
+.chart-empty[hidden]{display:none}
+
+#readout{flex:none;max-height:248px;overflow:auto;background:var(--surface-1);
+  border-top:1px solid var(--border)}
+table{border-collapse:collapse;width:100%;font-size:11.5px;font-variant-numeric:tabular-nums}
+th,td{text-align:right;padding:5px 11px;white-space:nowrap;border-bottom:1px solid var(--grid)}
+th{position:sticky;top:0;background:var(--surface-1);color:var(--muted);font-weight:600;
+  font-size:10.5px;letter-spacing:.04em;text-transform:uppercase;z-index:1;
+  box-shadow:0 1px 0 var(--border)}
+td{color:var(--ink-2)}
+th:first-child,td:first-child{text-align:left}
+th.fill,td.fill{width:100%;padding:0}
+tbody tr:hover{background:var(--hover)}
+.tname{display:flex;align-items:center;gap:7px;color:var(--ink)}
+.tname i{width:9px;height:9px;border-radius:2px;flex:none;font-style:normal}
+.tname i.tx{border-radius:1px;height:3px;width:14px}
+.grp td{background:var(--plane);color:var(--muted);font-size:10.5px;font-weight:600;
+  letter-spacing:.05em;text-transform:uppercase;text-align:left}
+.dim{color:var(--muted)}
+.hi{color:var(--ink);font-weight:600}
+
+#drop{position:fixed;inset:0;background:rgba(42,120,214,.10);border:3px dashed var(--s1);
+  display:none;align-items:center;justify-content:center;z-index:50;
+  font-size:17px;font-weight:600;color:var(--s1)}
+#drop.on{display:flex}
+
+#toasts{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:60;
+  display:flex;flex-direction:column;gap:7px;align-items:center;pointer-events:none}
+.toast{background:var(--surface-1);border:1px solid var(--border);border-left:3px solid var(--muted);
+  border-radius:var(--radius);padding:8px 14px;font-size:12px;max-width:min(520px,90vw);
+  box-shadow:0 4px 16px rgba(0,0,0,.14);animation:rise .18s ease-out}
+.toast.warn{border-left-color:var(--warning)}
+.toast.err{border-left-color:var(--critical)}
+.toast.ok{border-left-color:var(--good)}
+@keyframes rise{from{opacity:0;transform:translateY(7px)}}
+
+dialog{border:1px solid var(--border);border-radius:11px;background:var(--surface-1);
+  color:var(--ink);padding:0;max-width:min(430px,92vw);width:100%;
+  box-shadow:0 12px 40px rgba(0,0,0,.24)}
+dialog::backdrop{background:rgba(0,0,0,.34)}
+.dlg-h{display:flex;align-items:center;gap:8px;padding:13px 16px;
+  border-bottom:1px solid var(--border);font-weight:600;font-size:13px}
+.dlg-b{padding:8px 0;max-height:52vh;overflow-y:auto}
+.dlg-f{display:flex;gap:8px;padding:11px 16px;border-top:1px solid var(--border);
+  justify-content:flex-end}
+.srow{display:flex;align-items:center;gap:9px;padding:6px 16px;cursor:pointer;font-size:12px;
+  font-variant-numeric:tabular-nums}
+.srow:hover{background:var(--hover)}
+.srow input{accent-color:var(--s1);margin:0}
+.srow em{margin-left:auto;color:var(--muted);font-style:normal;font-size:11px}
+.dlg-pad{padding:14px 16px}
+.vna-state{display:flex;align-items:center;gap:9px;padding:9px 11px;border-radius:var(--radius);
+  background:var(--plane);border:1px solid var(--border);margin-bottom:13px;font-size:12px}
+.vna-state .dot{width:8px;height:8px;border-radius:99px;background:var(--muted);flex:none}
+.vna-state.ok .dot{background:var(--good)}
+.vna-state.busy .dot{background:var(--warning)}
+.vna-state.err .dot{background:var(--critical)}
+.vna-state b{font-weight:600}
+.vna-state span{color:var(--muted)}
+.vna-row{display:flex;align-items:center;gap:7px;margin-bottom:9px}
+.vna-row label{font-size:11.5px;color:var(--ink-2);width:62px;flex:none}
+.vna-row input[type=text]{flex:1;min-width:0;background:var(--plane);border:1px solid var(--border);
+  border-radius:5px;padding:4px 7px;font-size:12px;font-variant-numeric:tabular-nums}
+.vna-row input:focus{outline:2px solid var(--s1);outline-offset:-1px}
+.vna-note{font-size:11px;color:var(--muted);line-height:1.55;margin-top:11px}
+#vna-points{flex:0 0 92px}
+.vna-row select.unit{flex:0 0 68px}
+.vna-resolved{font-size:11px;color:var(--muted);margin:-3px 0 10px 69px;line-height:1.55;
+  font-variant-numeric:tabular-nums}
+.vna-resolved b{color:var(--ink-2);font-weight:600}
+.vna-resolved.amb,.vna-resolved.amb b{color:var(--warning)}
+.vna-row .check{white-space:nowrap}
+.vna-row select{flex:1;min-width:0;background:var(--plane);border:1px solid var(--border);
+  border-radius:5px;padding:4px 7px;font-size:12px}
+.vna-cal{font-size:11px;color:var(--muted);margin:-3px 0 10px 69px;line-height:1.5}
+.vna-cal b{color:var(--ink-2);font-weight:600}
+.vna-cal.warn{color:var(--warning)}
+.vna-row input[disabled],.vna-row select[disabled]{opacity:.5;cursor:not-allowed}
+
+#dlg-cal{max-width:min(520px,94vw)}
+.cal-steps{list-style:none;margin:0 0 13px;padding:0;display:flex;gap:6px;flex-wrap:wrap}
+.cal-steps li{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:4px 10px;
+  border:1px solid var(--border);border-radius:99px;color:var(--muted)}
+.cal-steps li.done{color:var(--good);border-color:currentColor}
+.cal-steps li.now{color:#fff;background:var(--s1);border-color:transparent;font-weight:600}
+.cal-instruct{font-size:13px;line-height:1.6;padding:13px;border:1px solid var(--border);
+  border-radius:var(--radius);background:var(--plane)}
+.cal-instruct b{font-weight:700}
+.cal-instruct .sub{display:block;margin-top:7px;font-size:11.5px;color:var(--muted)}
+.cal-danger{border:1px solid var(--critical);border-radius:var(--radius);padding:10px 12px;
+  font-size:11.5px;line-height:1.6;margin-top:11px}
+.cal-danger b{color:var(--critical);font-weight:700}
+.btn.danger{background:var(--critical);border-color:transparent;color:#fff;font-weight:600}
+.btn.danger:hover{filter:brightness(1.08);color:#fff}
+.cal-opt{display:flex;align-items:flex-start;gap:8px;font-size:12px;padding:8px 0;cursor:pointer}
+.cal-opt input{accent-color:var(--s1);margin:2px 0 0}
+.cal-opt .t{display:block}
+.cal-opt .s{display:block;font-size:11px;color:var(--muted);margin-top:2px}
+
+@media (max-width:900px){
+  #sidebar{width:236px}
+  #charts{flex-direction:column;overflow-y:auto}
+  #smith-box{width:auto;height:394px;border-left:0;border-top:1px solid var(--border)}
+  #rect-box{min-height:300px}
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <a href="../index.html" class="back-to-tools" style="font-size:12px;color:var(--muted);text-decoration:none;white-space:nowrap;align-self:center;" title="Back to Tools">&larr; Tools</a>
+    <div class="brand">
+      <h1>NanoVNA Viewer</h1>
+      <span>Touchstone .s1p / .s2p</span>
+    </div>
+    <button class="btn primary" id="btn-open">Open files</button>
+    <button class="btn" id="btn-vna">Capture from VNA</button>
+    <button class="btn" id="btn-samples">Samples</button>
+    <button class="btn" id="btn-csv" disabled>CSV</button>
+    <button class="btn" id="btn-png" disabled>PNG</button>
+    <button class="btn icon" id="btn-theme" title="Toggle light / dark">&#9681;</button>
+    <input type="file" id="file-input" multiple accept=".s1p,.s2p,.snp,.txt" hidden>
+  </header>
+
+  <main>
+    <aside id="sidebar">
+      <div class="panel" id="traces-panel">
+        <div class="panel-h">Traces <span class="count" id="trace-count"></span>
+          <button class="x" id="btn-clear" title="Remove all">&times;</button>
+        </div>
+        <div id="trace-list"></div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">Marker</div>
+        <div class="field">
+          <label for="mk-freq">Frequency</label>
+          <input type="text" id="mk-freq" placeholder="868 (MHz)" title="A bare number is read as MHz; kHz / MHz / GHz also work" spellcheck="false">
+        </div>
+        <div class="field">
+          <label>Snap to</label>
+          <select id="mk-snap">
+            <option value="">— none —</option>
+            <option value="s11min">Min return loss (S11)</option>
+            <option value="swrmin">Min SWR</option>
+            <option value="s21max">Max |S21|</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-h">Axes</div>
+        <div class="field">
+          <label>Y scale</label>
+          <div class="seg" id="seg-yscale">
+            <button data-v="auto" class="on">Auto</button>
+            <button data-v="manual">Manual</button>
+          </div>
+        </div>
+        <div class="field" id="ylim-row" hidden>
+          <label for="y-min">Min / max</label>
+          <input type="text" id="y-min" placeholder="min">
+          <input type="text" id="y-max" placeholder="max">
+        </div>
+        <div class="field">
+          <label>Limit line</label>
+          <input type="text" id="limit-line" placeholder="e.g. -10 or 2" spellcheck="false">
+        </div>
+      </div>
+    </aside>
+
+    <div id="content">
+      <div id="toolbar">
+        <span class="tb-label">Y</span>
+        <div class="seg" id="seg-quantity">
+          <button data-v="s11db" class="on">Return loss</button>
+          <button data-v="swr">SWR</button>
+          <button data-v="z">Impedance</button>
+          <button data-v="s11deg">S11 phase</button>
+          <button data-v="s21db">|S21|</button>
+          <button data-v="s21deg">S21 phase</button>
+          <button data-v="delay">Group delay</button>
+        </div>
+        <div class="sep"></div>
+        <span class="tb-label">X</span>
+        <div class="seg" id="seg-xscale">
+          <button data-v="lin" class="on">Linear</button>
+          <button data-v="log">Log</button>
+        </div>
+        <div class="sep"></div>
+        <label class="check"><input type="checkbox" id="chk-smith"> Smith chart</label>
+        <button class="btn" id="btn-reset-zoom" hidden>Reset zoom</button>
+      </div>
+
+      <div id="charts">
+        <div class="chart-box" id="rect-box">
+          <canvas id="rect-canvas"></canvas>
+          <div class="chart-empty" id="rect-empty">
+            <strong>No traces loaded</strong>
+            <span>Drop .s1p / .s2p files here, or use Open files.</span>
+          </div>
+        </div>
+        <div class="chart-box" id="smith-box">
+          <canvas id="smith-canvas"></canvas>
+        </div>
+      </div>
+
+      <div id="readout"><table id="readout-table"></table></div>
+    </div>
+  </main>
+</div>
+
+<div id="drop">Drop Touchstone files to plot</div>
+<div id="toasts"></div>
+
+<dialog id="dlg-vna">
+  <div class="dlg-h">Capture from VNA</div>
+  <div class="dlg-b dlg-pad">
+    <div class="vna-state" id="vna-state">
+      <span class="dot"></span>
+      <span id="vna-text">Not connected</span>
+    </div>
+    <div id="vna-form" hidden>
+      <div class="vna-row">
+        <label for="vna-preset">Preset</label>
+        <select id="vna-preset"></select>
+      </div>
+      <div class="vna-cal" id="vna-cal" hidden></div>
+      <div class="vna-row">
+        <label for="vna-start">Start</label>
+        <input type="text" id="vna-start" spellcheck="false">
+        <label for="vna-stop" style="width:auto">Stop</label>
+        <input type="text" id="vna-stop" spellcheck="false">
+        <select id="vna-unit" class="unit">
+          <option value="hz">Hz</option><option value="khz">kHz</option>
+          <option value="mhz" selected>MHz</option><option value="ghz">GHz</option>
+        </select>
+      </div>
+      <div class="vna-row">
+        <label for="vna-points">Points</label>
+        <input type="text" id="vna-points" spellcheck="false">
+      </div>
+      <div class="vna-resolved" id="vna-resolved" hidden></div>
+      <div class="vna-row">
+        <span style="width:62px;flex:none"></span>
+        <label class="check"><input type="checkbox" id="vna-s21"> Also capture S21 (transmission)</label>
+      </div>
+      <div class="vna-note">
+        Editing the sweep retunes the VNA itself before capturing. Leave it alone to read
+        the sweep already on screen. The sweep is paused during the read and resumed after.
+      </div>
+    </div>
+  </div>
+  <div class="dlg-f">
+    <button class="btn" id="vna-disconnect" hidden>Disconnect</button>
+    <button class="btn" id="vna-cal-btn" hidden>Calibrate…</button>
+    <button class="btn" id="vna-close">Close</button>
+    <button class="btn primary" id="vna-go">Connect</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-cal">
+  <div class="dlg-h">Calibrate <span id="cal-sub" style="margin-left:auto;font-weight:400;color:var(--muted);font-size:11px"></span></div>
+  <div class="dlg-b dlg-pad">
+
+    <div id="cal-setup">
+      <div class="vna-row">
+        <label for="cal-start">Start</label>
+        <input type="text" id="cal-start" spellcheck="false">
+        <label for="cal-stop" style="width:auto">Stop</label>
+        <input type="text" id="cal-stop" spellcheck="false">
+        <select id="cal-unit" class="unit">
+          <option value="hz">Hz</option><option value="khz">kHz</option>
+          <option value="mhz" selected>MHz</option><option value="ghz">GHz</option>
+        </select>
+      </div>
+      <div class="vna-row">
+        <label for="cal-points">Points</label>
+        <input type="text" id="cal-points" spellcheck="false">
+      </div>
+      <div class="vna-resolved" id="cal-resolved" hidden></div>
+      <div class="vna-row">
+        <span style="width:62px;flex:none"></span>
+        <label class="check"><input type="checkbox" id="cal-thru"> Include THRU (2-port transmission)</label>
+      </div>
+      <div class="vna-note" style="margin-top:13px">
+        A calibration is only valid for the span it was made on, so set it here first —
+        this is the range the result will cover. OPEN, SHORT and LOAD are always measured;
+        THRU is optional and only needed for S21.
+      </div>
+      <div class="cal-danger">
+        Starting <b>erases the calibration currently in working state</b>. Your saved preset
+        slots are not touched — recalling one restores its calibration. Nothing is written
+        to a slot unless you choose to at the end.
+      </div>
+    </div>
+
+    <div id="cal-measure" hidden>
+      <ol class="cal-steps" id="cal-steps"></ol>
+      <div class="cal-instruct" id="cal-instruct"></div>
+    </div>
+
+    <div id="cal-save" hidden>
+      <div class="vna-state ok" style="margin-bottom:14px">
+        <span class="dot"></span><span id="cal-result"></span>
+      </div>
+      <label class="cal-opt">
+        <input type="radio" name="calsave" value="" checked>
+        <span><span class="t">Keep in working state only</span>
+        <span class="s">Nothing is written to your slots. The calibration is lost at the next preset recall or power-off.</span></span>
+      </label>
+      <label class="cal-opt">
+        <input type="radio" name="calsave" value="slot">
+        <span><span class="t">Save to a preset slot</span>
+        <span class="s">Overwrites whatever that slot holds now — permanently.</span></span>
+      </label>
+      <div class="vna-row" style="margin:4px 0 0 24px">
+        <select id="cal-slot"></select>
+      </div>
+      <div class="cal-danger" id="cal-overwrite" hidden></div>
+    </div>
+
+  </div>
+  <div class="dlg-f">
+    <button class="btn" id="cal-cancel">Cancel</button>
+    <button class="btn primary" id="cal-next">Start</button>
+  </div>
+</dialog>
+
+<dialog id="dlg-samples">
+  <div class="dlg-h">Sample sweeps <span id="dlg-sub" style="margin-left:auto;font-weight:400;color:var(--muted);font-size:11px"></span></div>
+  <div class="dlg-b" id="dlg-list"></div>
+  <div class="dlg-f">
+    <button class="btn" id="dlg-none">Select none</button>
+    <button class="btn" id="dlg-all">Select all</button>
+    <button class="btn primary" id="dlg-load">Load</button>
+  </div>
+</dialog>
+
+<script>
+"use strict";
+/* ============================ Touchstone parsing ============================ */
+
+const FREQ_MULT = { hz:1, khz:1e3, mhz:1e6, ghz:1e9 };
+
+function parseTouchstone(text, filename){
+  const warnings = [];
+  let unit='ghz', param='s', format='ma', z0=50, sawOption=false;
+  const comments=[], tokens=[];
+
+  const lines = String(text).split(/\r\n|\r|\n/);
+  for (const raw of lines){
+    let line = raw;
+    const bang = line.indexOf('!');
+    if (bang !== -1){
+      const c = line.slice(bang+1).trim();
+      if (c) comments.push(c);
+      line = line.slice(0, bang);
+    }
+    line = line.trim();
+    if (!line) continue;
+
+    if (line[0] === '#'){
+      if (sawOption){ warnings.push('Multiple option (#) lines; the first was used.'); continue; }
+      sawOption = true;
+      const parts = line.slice(1).trim().split(/\s+/);
+      for (let i=0;i<parts.length;i++){
+        const p = parts[i].toLowerCase();
+        if (p in FREQ_MULT) unit = p;
+        else if ('syzhg'.includes(p) && p.length===1) param = p;
+        else if (p==='ri'||p==='ma'||p==='db') format = p;
+        else if (p==='r'){ const v=parseFloat(parts[i+1]); if (isFinite(v)){ z0=v; i++; } }
+      }
+      continue;
+    }
+    for (const raw2 of line.split(/\s+/)){
+      if (!raw2) continue;
+      // "0,289870" is a comma-decimal number from a locale-formatted writer, not two
+      // values. Anything else containing commas is treated as comma-delimited.
+      const parts = /^[+-]?\d+,\d+(?:[eE][+-]?\d+)?$/.test(raw2)
+        ? [raw2.replace(',', '.')]
+        : raw2.split(',');
+      for (const t of parts){
+        if (!t) continue;
+        const v = Number(t);
+        if (Number.isFinite(v)) tokens.push(v);
+        else warnings.push('Ignored non-numeric value "'+t+'".');
+      }
+    }
+  }
+
+  if (!sawOption) warnings.push('No "#" option line; assumed GHz S MA R 50.');
+  if (param !== 's') warnings.push('Option line declares '+param.toUpperCase()+'-parameters; values were read as S-parameters.');
+
+  const ext = /\.s(\d+)p$/i.exec(filename||'');
+  let ports = ext ? parseInt(ext[1],10) : null;
+  if (ports > 2) throw new Error(ports + '-port files are not supported — this viewer reads 1- and 2-port (.s1p / .s2p) data.');
+  if (!ports || ports < 1) ports = null;
+  if (!ports){
+    const fl = lines.find(l => { const s=l.split('!')[0].trim(); return s && s[0]!=='#'; });
+    const w = fl ? fl.split('!')[0].trim().split(/[\s,]+/).filter(Boolean).length : 0;
+    ports = w>=9 ? 2 : 1;
+    warnings.push('Port count inferred from the data width as '+ports+'-port.');
+  }
+
+  const stride = 1 + 2*ports*ports;
+  const n = Math.floor(tokens.length/stride);
+  if (n === 0) throw new Error('No data points found — is this a Touchstone file?');
+  if (tokens.length % stride) warnings.push((tokens.length%stride)+' trailing value(s) ignored (incomplete final record).');
+
+  const mult = FREQ_MULT[unit];
+  const freq = new Float64Array(n);
+  const mk = () => ({ re:new Float64Array(n), im:new Float64Array(n) });
+  const S = ports===2 ? {s11:mk(), s21:mk(), s12:mk(), s22:mk()} : {s11:mk()};
+  const order = ports===2 ? ['s11','s21','s12','s22'] : ['s11'];
+
+  let nonMono = false;
+  for (let i=0;i<n;i++){
+    const base = i*stride;
+    freq[i] = tokens[base]*mult;
+    if (i>0 && freq[i] <= freq[i-1]) nonMono = true;
+    for (let k=0;k<order.length;k++){
+      const a = tokens[base+1+2*k], b = tokens[base+2+2*k];
+      const t = S[order[k]];
+      if (format==='ri'){ t.re[i]=a; t.im[i]=b; }
+      else {
+        const mag = format==='db' ? Math.pow(10, a/20) : a;
+        const rad = b*Math.PI/180;
+        t.re[i] = mag*Math.cos(rad); t.im[i] = mag*Math.sin(rad);
+      }
+    }
+  }
+  if (nonMono) warnings.push('Frequency axis is not strictly increasing.');
+
+  // NanoVNA writes .s2p forward-only: S12 / S22 columns are zero-filled padding.
+  const measured = {};
+  for (const k of order){
+    const t = S[k];
+    let any = false;
+    for (let i=0;i<n;i++) if (t.re[i]!==0 || t.im[i]!==0){ any = true; break; }
+    measured[k] = any;
+  }
+
+  return { filename:filename||'unnamed', ports, format, unit, z0, n, freq, S, measured, comments, warnings };
+}
+
+/* ============================ derived quantities ============================ */
+
+const mag = (re,im) => Math.hypot(re,im);
+const toDb = (re,im) => { const m = Math.hypot(re,im); return m > 0 ? 20*Math.log10(m) : -Infinity; };
+const toDeg = (re,im) => Math.atan2(im,re)*180/Math.PI;
+function toSwr(re,im){
+  const m = Math.hypot(re,im);
+  return m >= 1 ? Infinity : (1+m)/(1-m);
+}
+// Z = Z0 (1 + G) / (1 - G)
+function toZ(re,im,z0){
+  const dr = 1-re, di = -im;
+  const den = dr*dr + di*di;
+  if (den === 0) return { r:Infinity, x:Infinity };
+  const nr = 1+re, ni = im;
+  return { r: z0*(nr*dr + ni*di)/den, x: z0*(ni*dr - nr*di)/den };
+}
+
+/** Group delay in seconds: tau = -(1/360) dphi_deg/df, on unwrapped phase. */
+function groupDelay(freq, s, n){
+  const out = new Float64Array(n);
+  if (n < 2) return out;
+  const ph = new Float64Array(n);
+  let prev = toDeg(s.re[0], s.im[0]), acc = prev;
+  ph[0] = acc;
+  for (let i=1;i<n;i++){
+    const cur = toDeg(s.re[i], s.im[i]);
+    let d = cur - prev;
+    while (d > 180) d -= 360;
+    while (d < -180) d += 360;
+    acc += d; ph[i] = acc; prev = cur;
+  }
+  for (let i=0;i<n;i++){
+    const a = Math.max(0,i-1), b = Math.min(n-1,i+1);
+    const df = freq[b]-freq[a];
+    out[i] = df !== 0 ? -(ph[b]-ph[a])/(360*df) : NaN;
+  }
+  return out;
+}
+
+/* ============================== formatting ================================= */
+
+function fmtFreq(hz, digits){
+  if (!isFinite(hz)) return '—';
+  const a = Math.abs(hz);
+  let u='Hz', d=1;
+  if (a >= 1e9){ u='GHz'; d=1e9; }
+  else if (a >= 1e6){ u='MHz'; d=1e6; }
+  else if (a >= 1e3){ u='kHz'; d=1e3; }
+  const v = hz/d;
+  const p = digits != null ? digits : (Math.abs(v) >= 100 ? 3 : Math.abs(v) >= 10 ? 4 : 5);
+  return trimZeros(v.toPrecision(p)) + ' ' + u;
+}
+function trimZeros(s){
+  if (s.indexOf('e') !== -1 || s.indexOf('E') !== -1) return s;
+  return s.indexOf('.') !== -1 ? s.replace(/0+$/,'').replace(/\.$/,'') : s;
+}
+function fmtNum(v, dp){
+  if (v === Infinity) return '∞';
+  if (v === -Infinity) return '-∞';
+  if (!isFinite(v)) return '—';
+  return v.toFixed(dp == null ? 2 : dp);
+}
+/**
+ * Normalise a typed number to dot-decimal, accepting comma decimals and digit grouping.
+ * Without this "1,234" silently parses as 1 — the value is truncated at the comma and
+ * nothing says so, which on a sweep or calibration span is badly wrong.
+ *
+ *   1.234 -> 1.234    1,234 -> 1.234    1,5 -> 1.5
+ *   1 234 -> 1234     1,234,567 -> 1234567
+ *   1.234,5 -> 1234.5 (last separator is the decimal one)
+ *   1,234.5 -> 1234.5
+ */
+function normalizeNumber(s){
+  s = String(s).replace(/[\s  ']/g, '');       // spaces / NBSP / apostrophe grouping
+  const dot = s.lastIndexOf('.'), comma = s.lastIndexOf(',');
+  if (dot !== -1 && comma !== -1){
+    return comma > dot ? s.replace(/\./g, '').replace(',', '.')   // 1.234,5  European
+                       : s.replace(/,/g, '');                      // 1,234.5  English
+  }
+  if (comma !== -1){
+    const parts = s.split(',');
+    if (parts.length > 2) return s.replace(/,/g, '');              // 1,234,567 grouping
+    return parts[0] + '.' + parts[1];                              // single comma = decimal
+  }
+  return s;
+}
+/** True when a single comma could equally be a decimal point or a thousands separator. */
+function commaAmbiguous(s){
+  s = String(s).replace(/[\s  ']/g, '');
+  if (s.indexOf('.') !== -1) return false;
+  const parts = s.split(',');
+  return parts.length === 2 && /^[+-]?\d{1,3}$/.test(parts[0]) && /^\d{3}$/.test(parts[1]);
+}
+
+const UNIT_SUFFIX = /(ghz|mhz|khz|hz|g|m|k|h)\s*$/i;
+/** Accepts "868", "868 MHz", "868M", ".868g", "8.68e8", "1,234" and "1 234". */
+function parseFreq(str){
+  if (!str) return NaN;
+  let s = String(str).trim();
+  let mult = null;
+  const um = UNIT_SUFFIX.exec(s);        // exponents end in a digit, so they never match
+  if (um){
+    const u = um[1][0].toLowerCase();
+    mult = u === 'g' ? 1e9 : u === 'm' ? 1e6 : u === 'k' ? 1e3 : 1;
+    s = s.slice(0, um.index);
+  }
+  const v = parseFloat(normalizeNumber(s));
+  if (!isFinite(v)) return NaN;
+  if (mult === null) return v >= 1e5 ? v : v*1e6;   // bare number: small values read as MHz
+  return v * mult;
+}
+
+/* ================================= state =================================== */
+
+const PALETTE = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
+const DASHES = [[], [7,4], [2,3], [10,3,2,3]];
+
+const QUANTITIES = {
+  s11db:  { label:'S11 magnitude',     axis:'dB',  param:'s11', kind:'db'  },
+  swr:    { label:'SWR',               axis:'',    param:'s11', kind:'swr' },
+  z:      { label:'Impedance (S11)',   axis:'Ω', param:'s11', kind:'z' },
+  s11deg: { label:'S11 phase',         axis:'°', param:'s11', kind:'deg' },
+  s21db:  { label:'|S21|',             axis:'dB',  param:'s21', kind:'db'  },
+  s21deg: { label:'S21 phase',         axis:'°', param:'s21', kind:'deg' },
+  delay:  { label:'Group delay (S21)', axis:'ns',  param:'s21', kind:'delay' },
+};
+
+const state = {
+  traces: [],
+  quantity: 's11db',
+  xscale: 'lin',
+  yauto: true, ymin:null, ymax:null,
+  limit: null,
+  smith: false,
+  marker: NaN,
+  snap: '',
+  hover: null,
+  zoom: null,
+  drag: null,
+  seq: 0,
+};
+
+const $ = s => document.querySelector(s);
+const el = {
+  rect: $('#rect-canvas'), smith: $('#smith-canvas'),
+  rectBox: $('#rect-box'), smithBox: $('#smith-box'),
+  list: $('#trace-list'), table: $('#readout-table'),
+  count: $('#trace-count'), empty: $('#rect-empty'),
+};
+
+/* ================================= theme =================================== */
+
+let THEME = {};
+function refreshTheme(){
+  const cs = getComputedStyle(document.documentElement);
+  const g = n => cs.getPropertyValue(n).trim();
+  THEME = {
+    surface:g('--surface-1'), ink:g('--ink'), ink2:g('--ink-2'), muted:g('--muted'),
+    grid:g('--grid'), axis:g('--axis'), warn:g('--warning'), crit:g('--critical'),
+    series: PALETTE.map(g),
+  };
+}
+function traceColor(t){ return THEME.series[t.colorIdx % THEME.series.length]; }
+
+/* ============================== canvas setup =============================== */
+
+function fitCanvas(cv){
+  const dpr = window.devicePixelRatio || 1;
+  const r = cv.getBoundingClientRect();
+  const w = Math.max(1, Math.round(r.width*dpr)), h = Math.max(1, Math.round(r.height*dpr));
+  if (cv.width !== w || cv.height !== h){ cv.width = w; cv.height = h; }
+  const ctx = cv.getContext('2d');
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  return { ctx, w:r.width, h:r.height };
+}
+
+/* ============================== scale helpers ============================== */
+
+function niceTicks(lo, hi, target){
+  if (!isFinite(lo) || !isFinite(hi) || hi <= lo) return [lo];
+  const raw = (hi-lo)/Math.max(1,target);
+  const mag10 = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw/mag10;
+  const step = (n < 1.5 ? 1 : n < 3 ? 2 : n < 7 ? 5 : 10)*mag10;
+  const out = [];
+  for (let v = Math.ceil(lo/step)*step; v <= hi + step*1e-9; v += step){
+    out.push(Math.abs(v) < step*1e-9 ? 0 : v);
+    if (out.length > 200) break;
+  }
+  return out;
+}
+function logTicks(lo, hi){
+  const out = [];
+  if (lo <= 0) lo = hi/1e6;
+  const d0 = Math.floor(Math.log10(lo)), d1 = Math.ceil(Math.log10(hi));
+  const span = d1-d0;
+  const mults = span > 6 ? [1] : span > 3 ? [1,3] : [1,2,5];
+  for (let d=d0; d<=d1; d++)
+    for (const m of mults){
+      const v = m*Math.pow(10,d);
+      if (v >= lo*0.999 && v <= hi*1.001) out.push(v);
+    }
+  return out;
+}
+
+/* ============================ series extraction ============================ */
+
+/** Value series for a trace under the current quantity. null when unavailable. */
+function seriesFor(t, quantity){
+  const q = QUANTITIES[quantity], d = t.data, s = d.S[q.param];
+  if (!s || !d.measured[q.param]) return null;
+  const n = d.n, out = { y:new Float64Array(n), y2:null, label:q.label };
+  if (q.kind === 'z') out.y2 = new Float64Array(n);
+  for (let i=0;i<n;i++){
+    const re = s.re[i], im = s.im[i];
+    switch (q.kind){
+      case 'db':  out.y[i] = toDb(re,im); break;
+      case 'swr': out.y[i] = toSwr(re,im); break;
+      case 'deg': out.y[i] = toDeg(re,im); break;
+      case 'z': { const z = toZ(re,im,d.z0); out.y[i] = z.r; out.y2[i] = z.x; break; }
+    }
+  }
+  if (q.kind === 'delay'){
+    if (!t._gd) t._gd = groupDelay(d.freq, s, n);
+    for (let i=0;i<n;i++) out.y[i] = t._gd[i]*1e9;   // ns
+  }
+  return out;
+}
+
+function visibleTraces(){ return state.traces.filter(t => t.visible); }
+
+/** Traces that actually have data for the current quantity. */
+function plottable(){
+  return visibleTraces().map(t => ({ t, s: seriesFor(t, state.quantity) })).filter(o => o.s);
+}
+
+function sampleAt(t, hz){
+  const f = t.data.freq, n = t.data.n;
+  if (n === 0 || hz < f[0] || hz > f[n-1]) return -1;
+  let lo = 0, hi = n-1;
+  while (hi - lo > 1){ const mid = (lo+hi) >> 1; if (f[mid] <= hz) lo = mid; else hi = mid; }
+  return (hz - f[lo]) <= (f[hi] - hz) ? lo : hi;
+}
+
+/* ============================== rectangular ================================ */
+
+const PAD = { l:62, r:44, t:16, b:36 };
+
+function xDomain(){
+  let lo = Infinity, hi = -Infinity;
+  for (const t of visibleTraces()){
+    if (!t.data.n) continue;
+    lo = Math.min(lo, t.data.freq[0]);
+    hi = Math.max(hi, t.data.freq[t.data.n-1]);
+  }
+  if (!isFinite(lo)) return null;
+  if (state.zoom) return { lo:state.zoom.lo, hi:state.zoom.hi };
+  if (lo === hi){ lo -= 1; hi += 1; }
+  return { lo, hi };
+}
+
+function yDomain(items){
+  const q = QUANTITIES[state.quantity];
+  if (!state.yauto && isFinite(state.ymin) && isFinite(state.ymax) && state.ymax > state.ymin)
+    return { lo:state.ymin, hi:state.ymax };
+
+  const xd = xDomain();
+  let lo = Infinity, hi = -Infinity;
+  for (const { t, s } of items){
+    const f = t.data.freq;
+    for (let i=0;i<t.data.n;i++){
+      if (xd && (f[i] < xd.lo || f[i] > xd.hi)) continue;
+      for (const arr of [s.y, s.y2]){
+        if (!arr) continue;
+        const v = arr[i];
+        if (!isFinite(v)) continue;
+        if (v < lo) lo = v;
+        if (v > hi) hi = v;
+      }
+    }
+  }
+  if (!isFinite(lo) || !isFinite(hi)){
+    if (q.kind === 'swr') return { lo:1, hi:10 };
+    if (q.kind === 'deg') return { lo:-180, hi:180 };
+    return { lo:-60, hi:0 };
+  }
+  if (q.kind === 'swr'){ lo = 1; hi = Math.min(Math.max(hi,2), 20); }
+  if (q.kind === 'deg'){ lo = -180; hi = 180; }
+  if (state.limit != null){ lo = Math.min(lo, state.limit); hi = Math.max(hi, state.limit); }
+  if (lo === hi){ lo -= 1; hi += 1; }
+  const padv = (hi-lo)*0.06;
+  return { lo: lo-padv, hi: hi+padv };
+}
+
+function drawRect(){
+  const { ctx, w, h } = fitCanvas(el.rect);
+  ctx.clearRect(0,0,w,h);
+  const items = plottable();
+  const xd = xDomain();
+  el.empty.hidden = state.traces.length > 0;
+  if (!xd || w < 120 || h < 90){
+    if (state.traces.length && !items.length) noDataNote(ctx,w,h);
+    return;
+  }
+
+  const q = QUANTITIES[state.quantity];
+  const yd = yDomain(items);
+  const L = PAD.l, R = w-PAD.r, T = PAD.t, B = h-PAD.b;
+  const pw = R-L, ph = B-T;
+  if (pw <= 10 || ph <= 10) return;
+
+  const logx = state.xscale === 'log' && xd.lo > 0;
+  const lx0 = logx ? Math.log10(xd.lo) : xd.lo, lx1 = logx ? Math.log10(xd.hi) : xd.hi;
+  const X = hz => L + (((logx ? Math.log10(Math.max(hz,1e-12)) : hz) - lx0)/(lx1-lx0 || 1))*pw;
+  const Y = v => B - ((v - yd.lo)/(yd.hi - yd.lo || 1))*ph;
+  const invX = px => { const u = (px-L)/pw*(lx1-lx0)+lx0; return logx ? Math.pow(10,u) : u; };
+
+  // grid
+  ctx.save();
+  ctx.lineWidth = 1;
+  ctx.strokeStyle = THEME.grid;
+  const xt = logx ? logTicks(xd.lo, xd.hi) : niceTicks(xd.lo, xd.hi, Math.max(3, Math.floor(pw/96)));
+  const yt = niceTicks(yd.lo, yd.hi, Math.max(3, Math.floor(ph/46)));
+  ctx.beginPath();
+  for (const v of xt){ const x = Math.round(X(v))+0.5; if (x>=L && x<=R){ ctx.moveTo(x,T); ctx.lineTo(x,B); } }
+  for (const v of yt){ const y = Math.round(Y(v))+0.5; if (y>=T && y<=B){ ctx.moveTo(L,y); ctx.lineTo(R,y); } }
+  ctx.stroke();
+
+  // axis frame
+  ctx.strokeStyle = THEME.axis;
+  ctx.beginPath();
+  ctx.moveTo(L+0.5,T); ctx.lineTo(L+0.5,B+0.5); ctx.lineTo(R,B+0.5);
+  ctx.stroke();
+
+  // tick labels
+  ctx.fillStyle = THEME.muted;
+  ctx.font = '11px ' + FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  for (const v of xt){ const x = X(v); if (x>=L-2 && x<=R+2) ctx.fillText(fmtFreq(v,3), x, B+7); }
+  ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+  const ydp = tickDp(yt);
+  for (const v of yt){ const y = Y(v); if (y>=T-2 && y<=B+2) ctx.fillText(v.toFixed(ydp), L-8, y); }
+
+  // axis titles
+  ctx.fillStyle = THEME.ink2;
+  ctx.font = '11px ' + FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+  ctx.fillText('Frequency', (L+R)/2, h-2);
+  ctx.save();
+  ctx.translate(11, (T+B)/2); ctx.rotate(-Math.PI/2);
+  ctx.textBaseline = 'top';
+  ctx.fillText(q.label + (q.axis ? '  (' + q.axis + ')' : ''), 0, 0);
+  ctx.restore();
+
+  // limit line
+  if (state.limit != null && state.limit >= yd.lo && state.limit <= yd.hi){
+    ctx.save();
+    ctx.strokeStyle = THEME.warn; ctx.lineWidth = 1.5; ctx.setLineDash([5,4]);
+    const y = Math.round(Y(state.limit))+0.5;
+    ctx.beginPath(); ctx.moveTo(L,y); ctx.lineTo(R,y); ctx.stroke();
+    ctx.restore();
+  }
+
+  // traces (clipped to the plot rect so out-of-range data cannot bleed)
+  ctx.save();
+  ctx.beginPath(); ctx.rect(L,T,pw,ph); ctx.clip();
+  ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+  for (const { t, s } of items){
+    const col = traceColor(t);
+    drawLine(ctx, t, s.y, X, Y, col, DASHES[Math.floor(t.colorIdx/THEME.series.length) % DASHES.length], yd);
+    if (s.y2) drawLine(ctx, t, s.y2, X, Y, col, [6,3], yd);
+  }
+  ctx.restore();
+
+  // marker + hover
+  const rf = readoutFreq();
+  if (isFinite(state.marker)) vLine(ctx, X(state.marker), T, B, THEME.ink2, [4,3]);
+  if (state.hover != null) vLine(ctx, X(state.hover), T, B, THEME.muted, []);
+  if (isFinite(rf)) drawDots(ctx, items, rf, X, Y, L, R, T, B);
+
+  // drag-zoom band
+  if (state.drag && Math.abs(state.drag.x1-state.drag.x0) > 3){
+    ctx.save();
+    ctx.fillStyle = THEME.series[0] + '28';
+    const a = Math.min(state.drag.x0,state.drag.x1), b = Math.max(state.drag.x0,state.drag.x1);
+    ctx.fillRect(a,T,b-a,ph);
+    ctx.restore();
+  }
+
+  drawLegend(ctx, items, L, T, R);
+  if (isFinite(rf)) drawFreqPill(ctx, X(rf), B, rf);
+  if (!items.length) noDataNote(ctx, (L+R)/2*2, (T+B)/2*2);
+  ctx.restore();
+
+  drawRect.map = { X, Y, invX, L, R, T, B, yd, xd };
+}
+
+const FONT = 'system-ui,-apple-system,"Segoe UI",sans-serif';
+
+function tickDp(ticks){
+  if (ticks.length < 2) return 1;
+  const step = Math.abs(ticks[1]-ticks[0]);
+  if (step >= 10) return 0;
+  if (step >= 1) return Math.abs(ticks[0] % 1) > 1e-9 ? 1 : 0;
+  return Math.min(4, Math.max(1, Math.ceil(-Math.log10(step))));
+}
+
+function drawLine(ctx, t, ys, X, Y, color, dash, yd){
+  const f = t.data.freq, n = t.data.n;
+  ctx.save();
+  ctx.strokeStyle = color;
+  ctx.setLineDash(dash || []);
+  ctx.beginPath();
+  let pen = false;
+  const top = Y(yd.hi), bot = Y(yd.lo);
+  for (let i=0;i<n;i++){
+    let v = ys[i];
+    if (Number.isNaN(v)){ pen = false; continue; }
+    const x = X(f[i]);
+    // Infinities (SWR at |G| >= 1) peg to the axis edge instead of breaking the line.
+    let y = v === Infinity ? top-4 : v === -Infinity ? bot+4 : Y(v);
+    if (!isFinite(y)){ pen = false; continue; }
+    y = Math.max(top-1000, Math.min(bot+1000, y));
+    if (pen) ctx.lineTo(x,y); else { ctx.moveTo(x,y); pen = true; }
+  }
+  ctx.stroke();
+  ctx.restore();
+}
+
+function vLine(ctx, x, T, B, color, dash){
+  if (!isFinite(x)) return;
+  ctx.save();
+  ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.setLineDash(dash||[]);
+  const xx = Math.round(x)+0.5;
+  ctx.beginPath(); ctx.moveTo(xx,T); ctx.lineTo(xx,B); ctx.stroke();
+  ctx.restore();
+}
+
+function drawDots(ctx, items, hz, X, Y, L, R, T, B){
+  const x = X(hz);
+  if (x < L-1 || x > R+1) return;
+  ctx.save();
+  for (const { t, s } of items){
+    const i = sampleAt(t, hz);
+    if (i < 0) continue;
+    for (const arr of [s.y, s.y2]){
+      if (!arr) continue;
+      const v = arr[i];
+      if (!isFinite(v)) continue;
+      const y = Y(v);
+      if (y < T-2 || y > B+2) continue;
+      ctx.beginPath(); ctx.arc(X(t.data.freq[i]), y, 4, 0, 7);
+      ctx.fillStyle = traceColor(t); ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = THEME.surface; ctx.stroke();
+    }
+  }
+  ctx.restore();
+}
+
+function drawFreqPill(ctx, x, B, hz){
+  const txt = fmtFreq(hz);
+  ctx.save();
+  ctx.font = '11px ' + FONT;
+  const w = ctx.measureText(txt).width + 12;
+  ctx.fillStyle = THEME.ink;
+  roundRect(ctx, x-w/2, B+3, w, 17, 4); ctx.fill();
+  ctx.fillStyle = THEME.surface;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(txt, x, B+12);
+  ctx.restore();
+}
+
+function drawLegend(ctx, items, L, T, R){
+  if (items.length < 2 && QUANTITIES[state.quantity].kind !== 'z') return;
+  const MAXLEG = 12;
+  const shown = items.slice(0, MAXLEG);
+  const extra = items.length - shown.length;
+  const rows = shown.map(o => o.t.name);
+  if (extra > 0) rows.push('+ ' + extra + ' more');
+  const zq = QUANTITIES[state.quantity].kind === 'z';
+  ctx.save();
+  ctx.font = '11px ' + FONT;
+  let wmax = 0;
+  for (const r of rows) wmax = Math.max(wmax, ctx.measureText(r).width);
+  if (zq) wmax = Math.max(wmax, ctx.measureText('solid R  ·  dashed X').width);
+  const bw = wmax + 34, lh = 15;
+  const bh = rows.length*lh + 10 + (zq ? lh : 0);
+  const x = R - bw - 8, y = T + 8;
+  ctx.globalAlpha = 0.92;
+  ctx.fillStyle = THEME.surface;
+  roundRect(ctx, x, y, bw, bh, 5); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.strokeStyle = THEME.grid; ctx.lineWidth = 1; ctx.stroke();
+  ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+  rows.forEach((r,i) => {
+    const cy = y + 10 + i*lh;
+    const o = shown[i];
+    if (o){
+      ctx.strokeStyle = traceColor(o.t); ctx.lineWidth = 2;
+      ctx.setLineDash(DASHES[Math.floor(o.t.colorIdx/THEME.series.length) % DASHES.length]);
+      ctx.beginPath(); ctx.moveTo(x+8, cy); ctx.lineTo(x+24, cy); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    ctx.fillStyle = o ? THEME.ink2 : THEME.muted;
+    ctx.fillText(r, o ? x+30 : x+8, cy);
+  });
+  if (zq){
+    ctx.fillStyle = THEME.muted;
+    ctx.fillText('solid R  ·  dashed X', x+8, y+10+rows.length*lh);
+  }
+  ctx.restore();
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath();
+}
+
+function noDataNote(ctx,w,h){
+  ctx.save();
+  ctx.fillStyle = THEME.muted; ctx.font = '13px ' + FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  const p = QUANTITIES[state.quantity].param.toUpperCase();
+  ctx.fillText('No visible trace carries measured ' + p + ' data.', w/2, h/2);
+  ctx.restore();
+}
+
+/* ================================= Smith =================================== */
+
+function drawSmith(){
+  if (!state.smith) return;
+  const { ctx, w, h } = fitCanvas(el.smith);
+  ctx.clearRect(0,0,w,h);
+  if (w < 60 || h < 60) return;
+  const pad = 26;
+  const Rr = Math.max(10, Math.min(w,h)/2 - pad);
+  const cx = w/2, cy = h/2;
+  const PX = (u,v) => [cx + u*Rr, cy - v*Rr];
+
+  ctx.save();
+  ctx.lineWidth = 1; ctx.strokeStyle = THEME.grid;
+  // constant-resistance circles
+  for (const r of [0.2,0.5,1,2,5]){
+    const c = r/(1+r), rad = 1/(1+r);
+    ctx.beginPath(); ctx.arc(cx + c*Rr, cy, rad*Rr, 0, 7); ctx.stroke();
+  }
+  // constant-reactance arcs, clipped to the unit circle
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, cy, Rr, 0, 7); ctx.clip();
+  for (const x of [0.2,0.5,1,2,5]){
+    for (const sgn of [1,-1]){
+      ctx.beginPath();
+      ctx.arc(cx + Rr, cy - sgn*Rr/x, Rr/Math.abs(x), 0, 7);
+      ctx.stroke();
+    }
+  }
+  ctx.restore();
+  // real axis + unit circle
+  ctx.strokeStyle = THEME.axis;
+  ctx.beginPath(); ctx.moveTo(cx-Rr,cy); ctx.lineTo(cx+Rr,cy); ctx.stroke();
+  ctx.beginPath(); ctx.arc(cx,cy,Rr,0,7); ctx.stroke();
+
+  ctx.fillStyle = THEME.muted; ctx.font = '10px ' + FONT;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  ctx.fillText('0', cx-Rr, cy+4);
+  ctx.fillText('50 Ω', cx, cy+4);
+  ctx.textAlign = 'right';
+  ctx.fillText('∞', cx+Rr-2, cy+4);
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.fillStyle = THEME.ink2; ctx.font = '11px ' + FONT;
+  ctx.fillText('Smith — S11', 8, 8);
+  ctx.restore();
+
+  const xd = xDomain();
+  const rf = readoutFreq();
+  ctx.save();
+  ctx.lineWidth = 2; ctx.lineJoin = 'round';
+  for (const t of visibleTraces()){
+    const d = t.data, s = d.S.s11;
+    if (!s || !d.measured.s11) continue;
+    ctx.strokeStyle = traceColor(t);
+    ctx.setLineDash(DASHES[Math.floor(t.colorIdx/THEME.series.length) % DASHES.length]);
+    ctx.beginPath();
+    let pen = false;
+    for (let i=0;i<d.n;i++){
+      if (xd && (d.freq[i] < xd.lo || d.freq[i] > xd.hi)) { pen = false; continue; }
+      const [px,py] = PX(s.re[i], s.im[i]);
+      if (!isFinite(px) || !isFinite(py)){ pen = false; continue; }
+      if (pen) ctx.lineTo(px,py); else { ctx.moveTo(px,py); pen = true; }
+    }
+    ctx.stroke();
+    ctx.setLineDash([]);
+    if (isFinite(rf)){
+      const i = sampleAt(t, rf);
+      if (i >= 0){
+        const [px,py] = PX(s.re[i], s.im[i]);
+        ctx.beginPath(); ctx.arc(px,py,4.5,0,7);
+        ctx.fillStyle = traceColor(t); ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = THEME.surface; ctx.stroke();
+        ctx.lineWidth = 2;
+      }
+    }
+  }
+  ctx.restore();
+}
+
+/* ================================ readout ================================== */
+
+function readoutFreq(){
+  if (state.hover != null) return state.hover;
+  return state.marker;
+}
+
+function traceSwatch(t, dashed){
+  const c = traceColor(t);
+  return '<span class="tname"><i class="' + (dashed ? 'tx' : '') + '" style="background:' + c + '"></i>' + esc(t.name) + '</span>';
+}
+function esc(s){ return String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+
+function renderTable(){
+  const vis = visibleTraces();
+  if (!vis.length){ el.table.innerHTML = ''; return; }
+  const rf = readoutFreq();
+  const anyS21 = vis.some(t => t.data.measured.s21);
+
+  const NC = (anyS21 ? 7 : 6) + 1;
+  let head = '<thead><tr><th>Trace</th><th>Freq</th><th>S11</th><th>SWR</th><th>R</th><th>X</th>';
+  if (anyS21) head += '<th>|S21|</th>';
+  head += '<th class="fill"></th></tr></thead>';
+
+  let body = '<tbody>';
+  const title = isFinite(rf)
+    ? (state.hover != null ? 'Cursor — ' : 'Marker — ') + fmtFreq(rf)
+    : 'Set a marker frequency or hover the chart';
+  body += '<tr class="grp"><td colspan="' + NC + '">' + esc(title) + '</td></tr>';
+
+  for (const t of vis){
+    const d = t.data;
+    const i = isFinite(rf) ? sampleAt(t, rf) : -1;
+    body += '<tr><td>' + traceSwatch(t) + '</td>';
+    if (i < 0){
+      body += '<td class="dim" colspan="' + (NC-2) + '">' + (isFinite(rf)
+        ? 'outside this sweep (' + fmtFreq(d.freq[0],3) + ' – ' + fmtFreq(d.freq[d.n-1],3) + ')'
+        : '—') + '</td>';
+    } else {
+      const re = d.S.s11.re[i], im = d.S.s11.im[i];
+      const z = toZ(re,im,d.z0), sw = toSwr(re,im);
+      body += '<td>' + fmtFreq(d.freq[i]) + '</td>';
+      body += '<td class="hi">' + fmtNum(toDb(re,im)) + ' dB</td>';
+      body += '<td class="' + (sw <= 2 ? 'hi' : '') + '">' + (sw === Infinity ? '∞' : fmtNum(sw)) + '</td>';
+      body += '<td>' + fmtNum(z.r,1) + ' Ω</td>';
+      body += '<td>' + (z.x >= 0 ? '+' : '') + fmtNum(z.x,1) + ' Ω</td>';
+      if (anyS21){
+        body += d.measured.s21
+          ? '<td>' + fmtNum(toDb(d.S.s21.re[i], d.S.s21.im[i])) + ' dB</td>'
+          : '<td class="dim">not measured</td>';
+      }
+    }
+    body += '<td class="fill"></td></tr>';
+  }
+
+  body += '<tr class="grp"><td colspan="' + NC + '">Summary — best match over the swept span</td></tr>';
+  for (const t of vis){
+    const st = summarize(t);
+    body += '<tr><td>' + traceSwatch(t) + '</td>';
+    body += '<td class="hi">' + (st ? fmtFreq(st.f) : '—') + '</td>';
+    body += '<td>' + (st ? fmtNum(st.db) + ' dB' : '—') + '</td>';
+    body += '<td>' + (st ? (st.swr === Infinity ? '∞' : fmtNum(st.swr)) : '—') + '</td>';
+    body += '<td colspan="2" class="dim">' + bandText(st) + '</td>';
+    if (anyS21){
+      body += t.data.measured.s21
+        ? '<td class="dim">peak ' + fmtNum(peakS21(t)) + ' dB</td>'
+        : '<td class="dim">not measured</td>';
+    }
+    body += '<td class="fill"></td></tr>';
+  }
+  body += '</tbody>';
+  el.table.innerHTML = head + body;
+}
+
+function summarize(t){
+  const d = t.data, s = d.S.s11;
+  if (!s || !d.measured.s11 || !d.n) return null;
+  let bi = -1, best = Infinity;
+  for (let i=0;i<d.n;i++){
+    const m = mag(s.re[i], s.im[i]);
+    if (m < best){ best = m; bi = i; }
+  }
+  if (bi < 0) return null;
+  // -10 dB band = contiguous run containing the best match
+  const thr = Math.pow(10,-10/20);
+  let lo = bi, hi = bi;
+  if (best <= thr){
+    while (lo > 0 && mag(s.re[lo-1], s.im[lo-1]) <= thr) lo--;
+    while (hi < d.n-1 && mag(s.re[hi+1], s.im[hi+1]) <= thr) hi++;
+  }
+  return {
+    f: d.freq[bi], db: 20*Math.log10(best || 1e-12),
+    swr: best >= 1 ? Infinity : (1+best)/(1-best),
+    bw: best <= thr
+      ? { lo:d.freq[lo], hi:d.freq[hi], clipped: lo === 0 || hi === d.n-1 }
+      : null,
+  };
+}
+function bandText(st){
+  if (!st) return '—';
+  if (!st.bw) return 'no −10 dB band in span';
+  if (st.bw.hi === st.bw.lo) return '−10 dB at ' + fmtFreq(st.bw.lo,3) + ' only (band narrower than one sweep step)';
+  const w = fmtFreq(st.bw.hi - st.bw.lo, 3);
+  return '−10 dB band ' + fmtFreq(st.bw.lo,3) + ' – ' + fmtFreq(st.bw.hi,3) +
+    (st.bw.clipped ? ' (≥ ' + w + ', runs to the sweep edge)' : ' (' + w + ' wide)');
+}
+function peakS21(t){
+  const d = t.data, s = d.S.s21;
+  let best = -Infinity;
+  for (let i=0;i<d.n;i++) best = Math.max(best, toDb(s.re[i], s.im[i]));
+  return best;
+}
+
+/* =============================== trace list ================================ */
+
+function renderList(){
+  el.count.textContent = state.traces.length ? state.traces.length + ' file' + (state.traces.length>1?'s':'') : '';
+  if (!state.traces.length){
+    el.list.innerHTML = '<div class="empty"><strong>Nothing loaded</strong><br>Drop .s1p / .s2p files anywhere,<br>or press <b>Open files</b>.</div>';
+    return;
+  }
+  el.list.innerHTML = state.traces.map(t => {
+    const d = t.data;
+    const s21 = d.ports === 2
+      ? (d.measured.s21 ? '<span class="chip on" style="color:' + traceColor(t) + '"><span class="dash" style="border-top:2px dashed currentColor;background:none;height:0"></span>S21</span>'
+                        : '<span class="chip na" title="S12/S22 columns are zero-filled by the NanoVNA">S21 not measured</span>')
+      : '';
+    return '<div class="trace' + (t.visible ? '' : ' off') + '" data-id="' + t.id + '">' +
+      '<div class="trace-top">' +
+        '<span class="swatch" data-act="vis" style="background:' + (t.visible ? traceColor(t) : 'transparent') + ';border-color:' + traceColor(t) + '"></span>' +
+        '<span class="trace-name" data-act="vis" title="' + esc(t.name) + '">' + esc(t.name) + '</span>' +
+        (t.captured ? '<button class="x" data-act="save" title="Save as a Touchstone file">&#11123;</button>' : '') +
+        '<button class="x" data-act="del" title="Remove">&times;</button>' +
+      '</div>' +
+      '<div class="trace-meta">' + fmtFreq(d.freq[0],3) + ' – ' + fmtFreq(d.freq[d.n-1],3) +
+        ' · ' + d.n + ' pts · ' + d.z0 + ' Ω</div>' +
+      '<div class="trace-params">' +
+        '<span class="chip on" style="color:' + traceColor(t) + '"><span class="dash"></span>S11</span>' + s21 +
+      '</div>' +
+    '</div>';
+  }).join('');
+}
+
+el.list.addEventListener('click', e => {
+  const row = e.target.closest('.trace');
+  if (!row) return;
+  const id = Number(row.dataset.id);
+  const act = e.target.closest('[data-act]');
+  if (!act) return;
+  const t = state.traces.find(x => x.id === id);
+  if (!t) return;
+  if (act.dataset.act === 'vis'){ t.visible = !t.visible; }
+  else if (act.dataset.act === 'del'){ state.traces = state.traces.filter(x => x.id !== id); }
+  else if (act.dataset.act === 'save'){
+    download(new Blob([t.captured], { type:'text/plain' }), t.name.replace(/[:\s]/g,'-'));
+    toast('Saved ' + t.name.replace(/[:\s]/g,'-') + '.', 'ok');
+    return;
+  }
+  redraw();
+});
+
+/* ================================ loading ================================== */
+
+function addFile(name, text){
+  const data = parseTouchstone(text, name);
+  const existing = state.traces.findIndex(t => t.name === name);
+  const tr = {
+    id: ++state.seq, name, data, visible:true,
+    colorIdx: existing >= 0 ? state.traces[existing].colorIdx : nextColorIdx(),
+  };
+  if (existing >= 0) state.traces[existing] = tr; else state.traces.push(tr);
+  if (data.warnings.length) toast(name + ': ' + data.warnings[0], 'warn');
+  return tr;
+}
+function nextColorIdx(){
+  const used = new Set(state.traces.map(t => t.colorIdx));
+  for (let i=0;i<512;i++) if (!used.has(i)) return i;
+  return state.traces.length;
+}
+
+async function loadFiles(files){
+  const list = Array.from(files).filter(f => /\.(s[0-9]+p|snp|txt)$/i.test(f.name));
+  if (!list.length){ toast('No Touchstone files in that selection.', 'err'); return; }
+  let ok = 0, bad = [];
+  for (const f of list){
+    try { addFile(f.name, await f.text()); ok++; }
+    catch (err){ bad.push(f.name + ': ' + err.message); }
+  }
+  if (ok) toast('Loaded ' + ok + ' file' + (ok>1?'s':'') + '.', 'ok');
+  for (const b of bad.slice(0,3)) toast(b, 'err');
+  redraw();
+}
+
+$('#btn-open').addEventListener('click', () => $('#file-input').click());
+$('#file-input').addEventListener('change', e => { loadFiles(e.target.files); e.target.value = ''; });
+
+$('#btn-clear').addEventListener('click', () => {
+  if (!state.traces.length) return;
+  state.traces = []; state.zoom = null; redraw();
+});
+
+/* drag and drop */
+let dragDepth = 0;
+const dropEl = $('#drop');
+window.addEventListener('dragenter', e => {
+  if (!e.dataTransfer || !Array.from(e.dataTransfer.types).includes('Files')) return;
+  e.preventDefault(); dragDepth++; dropEl.classList.add('on');
+});
+window.addEventListener('dragover', e => {
+  if (dropEl.classList.contains('on')){ e.preventDefault(); e.dataTransfer.dropEffect = 'copy'; }
+});
+window.addEventListener('dragleave', () => { if (--dragDepth <= 0){ dragDepth = 0; dropEl.classList.remove('on'); } });
+window.addEventListener('drop', e => {
+  if (!dropEl.classList.contains('on')) return;
+  e.preventDefault(); dragDepth = 0; dropEl.classList.remove('on');
+  if (e.dataTransfer.files.length) loadFiles(e.dataTransfer.files);
+});
+
+/* ================================ samples ================================== */
+
+const SAMPLE_DIR = 'Samples/';
+let sampleNames = null;
+const dlg = $('#dlg-samples');
+
+$('#btn-samples').addEventListener('click', async () => {
+  if (location.protocol === 'file:'){
+    toast('Samples need a web server (browsers block fetch on file://). Drag the Samples folder onto the page instead.', 'warn');
+    return;
+  }
+  if (!sampleNames){
+    try {
+      const r = await fetch(SAMPLE_DIR + 'index.json', { cache:'no-cache' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      sampleNames = await r.json();
+    } catch (err){
+      toast('Could not read ' + SAMPLE_DIR + 'index.json (' + err.message + ').', 'err');
+      return;
+    }
+  }
+  $('#dlg-sub').textContent = sampleNames.length + ' files';
+  $('#dlg-list').innerHTML = sampleNames.map((n,i) =>
+    '<label class="srow"><input type="checkbox" value="' + esc(n) + '"' + (i<2?' checked':'') + '>' +
+    esc(n) + '<em>' + (/\.s2p$/i.test(n) ? '2-port' : '1-port') + '</em></label>').join('');
+  dlg.showModal();
+});
+$('#dlg-all').addEventListener('click', () => dlg.querySelectorAll('input').forEach(c => c.checked = true));
+$('#dlg-none').addEventListener('click', () => dlg.querySelectorAll('input').forEach(c => c.checked = false));
+$('#dlg-load').addEventListener('click', async () => {
+  const picked = Array.from(dlg.querySelectorAll('input:checked')).map(c => c.value);
+  dlg.close();
+  if (!picked.length) return;
+  let ok = 0;
+  for (const n of picked){
+    try {
+      const r = await fetch(SAMPLE_DIR + n, { cache:'no-cache' });
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      addFile(n, await r.text()); ok++;
+    } catch (err){ toast(n + ': ' + err.message, 'err'); }
+  }
+  if (ok) toast('Loaded ' + ok + ' sample' + (ok>1?'s':'') + '.', 'ok');
+  redraw();
+});
+
+/* =========================== Web Serial capture ============================ */
+/*
+ * The NanoVNA-F V2 console has no filesystem commands, so sweeps already stored on the
+ * device are only reachable in USB mass-storage mode. The current sweep, though, comes
+ * out over the CDC console: "frequencies", "data 0" (S11) and "data 1" (S21). Those three
+ * reads plus a header are exactly a Touchstone file, so a capture is fed straight into the
+ * same addFile() path as a dropped file.
+ */
+
+const vna = { port:null, reader:null, writer:null, buf:'', sweep:null, busy:false };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function vnaSupported(){ return typeof navigator !== 'undefined' && 'serial' in navigator; }
+
+async function vnaReadLoop(){
+  const dec = new TextDecoder();
+  let reader;
+  try { reader = vna.port.readable.getReader(); } catch (_){ return; }
+  vna.reader = reader;
+  try {
+    for (;;){
+      const { value, done } = await reader.read();
+      if (done) break;
+      vna.buf += dec.decode(value, { stream:true });
+      if (vna.buf.length > 400000) vna.buf = vna.buf.slice(-200000);
+    }
+  } catch (_){ /* cancelled, closed, or unplugged */ }
+  finally { try { reader.releaseLock(); } catch (_){} if (vna.reader === reader) vna.reader = null; }
+}
+
+/**
+ * Send a command and collect its reply.
+ *
+ * The reply is taken between the console's echo of THIS command and the next "ch>"
+ * prompt. Anchoring on the echo matters: a prompt still in flight from the previous
+ * command would otherwise be read as this one's, and every later read would be one
+ * command out of step.
+ */
+async function vnaCmd(cmd, timeout){
+  if (!vna.writer) throw new Error('Not connected to a VNA.');
+  // Settle first, so bytes still arriving from the previous command are discarded.
+  vna.buf = '';
+  await sleep(40);
+  vna.buf = '';
+  await vna.writer.write(new TextEncoder().encode(cmd + '\r'));
+
+  const limit = timeout || 20000, t0 = performance.now();
+  let anchor = null, end = -1;
+  while (performance.now() - t0 < limit){
+    if (anchor === null){
+      if (!cmd) anchor = 0;
+      else {
+        const i = vna.buf.indexOf(cmd);
+        if (i >= 0) anchor = i + cmd.length;
+        // Firmware that does not echo: fall back to plain prompt detection.
+        else if (performance.now() - t0 > 2000 && vna.buf.indexOf('ch>') >= 0) anchor = 0;
+      }
+    }
+    if (anchor !== null){
+      end = vna.buf.indexOf('ch>', anchor);
+      if (end !== -1) break;
+    }
+    await sleep(30);
+  }
+  if (end === -1)
+    throw new Error('The VNA did not answer "' + (cmd || 'Enter') + '" within ' + Math.round(limit/1000) + ' s.');
+  return vna.buf.slice(anchor, end).split(/\r?\n/).map(s => s.trim()).filter(Boolean);
+}
+
+function vnaPairs(lines, what){
+  const re = /^(-?[\d.]+(?:[eE][-+]?\d+)?)\s+(-?[\d.]+(?:[eE][-+]?\d+)?)$/;
+  const out = [];
+  for (const l of lines){
+    const m = re.exec(l);
+    if (m) out.push([parseFloat(m[1]), parseFloat(m[2])]);
+  }
+  if (!out.length) throw new Error('The VNA returned no usable data for "' + what + '".');
+  return out;
+}
+
+function buildTouchstone(freqs, s11, s21, meta){
+  const pad = (s,w) => s.length >= w ? s : ' '.repeat(w-s.length) + s;
+  const d = new Date(), p2 = v => String(v).padStart(2,'0');
+  const stamp = d.getFullYear() + '-' + p2(d.getMonth()+1) + '-' + p2(d.getDate()) + ' ' +
+                p2(d.getHours()) + ':' + p2(d.getMinutes()) + ':' + p2(d.getSeconds());
+  const L = ['!File created by NanoVNA-F V2',
+             '!Captured over Web Serial ' + stamp];
+  // Record the calibration provenance in the file — months later this is the only way
+  // to know whether a sweep was corrected.
+  if (meta && meta.slot != null) L.push('!Recalled preset slot ' + meta.slot + ' (' + (meta.slotLabel||'') + ')');
+  if (meta && meta.cal) L.push('!Calibration: ' + meta.cal);
+  if (meta && meta.calStale) L.push('!WARNING: sweep retuned after calibration — data is not corrected at these frequencies');
+  L.push('# Hz S RI R 50');
+  let n = Math.min(freqs.length, s11.length);
+  if (s21) n = Math.min(n, s21.length);
+  for (let i=0;i<n;i++){
+    const row = [pad(String(Math.round(freqs[i])),10),
+                 pad(s11[i][0].toFixed(6),9), pad(s11[i][1].toFixed(6),9)];
+    if (s21) row.push(pad(s21[i][0].toFixed(6),9), pad(s21[i][1].toFixed(6),9), '0 0 0 0');
+    L.push(row.join(' '));
+  }
+  if (!n) throw new Error('The VNA returned no sweep points.');
+  return L.join('\r\n') + '\r\n';
+}
+
+/**
+ * "recall" with no argument lists the saved slots without loading any of them:
+ *   0:   800 MHz -   900 MHz
+ *   5: NULL
+ * Each slot stores its calibration along with the frequency plan, so recalling one is
+ * the only way to capture corrected data at a different span — retuning with "sweep"
+ * leaves the old calibration in place, interpolated at best.
+ */
+async function vnaListSlots(){
+  const out = [];
+  for (const l of await vnaCmd('recall', 8000)){
+    const m = /^(\d+)\s*:\s*(.+)$/.exec(l);
+    if (!m) continue;
+    const id = parseInt(m[1], 10), body = m[2].trim();
+    out.push({ id, empty: /^null$/i.test(body), label: body.replace(/\s+/g, ' ') });
+  }
+  return out;
+}
+async function vnaReadCal(){
+  const r = await vnaCmd('cal', 6000);
+  return r.length ? r.join(' ').trim() : '';
+}
+function calIsApplied(s){ return !!s && /cal'ed/i.test(s); }
+
+async function vnaReadSweep(){
+  const r = await vnaCmd('sweep', 6000);
+  for (const l of r){
+    const m = /^(\d+)\s+(\d+)\s+(\d+)$/.exec(l);
+    if (m) return { start:+m[1], stop:+m[2], points:+m[3] };
+  }
+  return null;
+}
+
+async function vnaConnect(){
+  const port = await navigator.serial.requestPort();
+  await port.open({ baudRate:115200, dataBits:8, stopBits:1, parity:'none', flowControl:'none' });
+  // STM32 CDC firmware commonly stays mute until DTR is asserted. Not every platform
+  // implements setSignals, so a failure here is not fatal.
+  try { await port.setSignals({ dataTerminalReady:true, requestToSend:true }); } catch (_){}
+  vna.port = port;
+  vna.writer = port.writable.getWriter();
+  vna.buf = '';
+  vnaReadLoop();
+  await sleep(250);
+  // Wake the shell and swallow the banner / first prompt.
+  try { await vnaCmd('', 3000); } catch (_){}
+  let info = [];
+  try { info = await vnaCmd('info', 6000); } catch (_){}
+  const model = (info.find(l => /model/i.test(l)) || info[0] || 'Serial device')
+    .replace(/^Model:\s*/i, '').trim();
+  let ver = '';
+  try { ver = (await vnaCmd('version', 4000))[0] || ''; } catch (_){}
+  vna.sweep = await vnaReadSweep().catch(() => null);
+  vna.cal   = await vnaReadCal().catch(() => '');
+  vna.slots = await vnaListSlots().catch(() => []);
+  return { model, ver };
+}
+
+async function vnaDisconnect(){
+  try { if (vna.reader) await vna.reader.cancel(); } catch (_){}
+  await sleep(60);
+  try { if (vna.writer){ vna.writer.releaseLock(); } } catch (_){}
+  vna.writer = null;
+  try { if (vna.port) await vna.port.close(); } catch (_){}
+  vna.port = null; vna.sweep = null; vna.buf = '';
+}
+
+/** Recall or retune, then pause, read frequencies + S11 (+ S21), resume. */
+async function vnaCapture(opts, onStep){
+  const withS21 = opts.withS21;
+  let retuneNote = null, calStale = false, slotLabel = null;
+
+  if (opts.slot != null){
+    // Recalling restores that slot's calibration together with its frequency plan,
+    // so the captured data is corrected.
+    slotLabel = opts.slotLabel || null;
+    onStep('Recalling preset ' + opts.slot + '...');
+    await vnaCmd('recall ' + opts.slot, 15000);
+    await sleep(400);
+    const got = await vnaReadSweep().catch(() => null);
+    if (got) vna.sweep = got;
+    onStep('Waiting for a full sweep after recall...');
+    await sleep(Math.min(6000, 1200 + ((got && got.points) || 201) * 8));
+  } else if (opts.retune){
+    const retune = opts.retune;
+    onStep('Retuning ' + fmtFreq(retune.start,3) + ' – ' + fmtFreq(retune.stop,3) + '...');
+    await vnaCmd('sweep ' + retune.start + ' ' + retune.stop + ' ' + retune.points, 15000);
+    // Let at least one full pass finish at the new settings before pausing, or data 0
+    // would still hold the previous sweep. Scale with point count; there is no
+    // "sweep complete" query to wait on.
+    onStep('Waiting for a full sweep at the new settings...');
+    await sleep(Math.min(6000, 1200 + retune.points * 8));
+    // Read back rather than assume: the firmware may clamp or ignore any of the three.
+    const got = await vnaReadSweep().catch(() => null);
+    if (got){
+      vna.sweep = got;
+      const diff = [];
+      if (got.start !== retune.start) diff.push('start ' + fmtFreq(got.start,4));
+      if (got.stop !== retune.stop) diff.push('stop ' + fmtFreq(got.stop,4));
+      if (got.points !== retune.points) diff.push(got.points + ' points');
+      if (diff.length) retuneNote = 'The VNA kept ' + diff.join(', ') + ' instead.';
+    } else {
+      vna.sweep = retune;
+    }
+    // "sweep" moves the frequencies but leaves the old calibration behind.
+    calStale = calIsApplied(vna.cal);
+  }
+  vna.cal = await vnaReadCal().catch(() => vna.cal);
+  onStep('Pausing sweep...');
+  await vnaCmd('pause', 8000);
+  try {
+    onStep('Reading frequencies...');
+    const freqs = (await vnaCmd('frequencies', 30000))
+      .filter(l => /^\d+$/.test(l)).map(Number);
+    if (!freqs.length) throw new Error('The VNA returned no frequency points.');
+    onStep('Reading S11...');
+    const s11 = vnaPairs(await vnaCmd('data 0', 30000), 'data 0');
+    let s21 = null;
+    if (withS21){
+      onStep('Reading S21...');
+      s21 = vnaPairs(await vnaCmd('data 1', 30000), 'data 1');
+    }
+    const meta = { cal: vna.cal, calStale, slot: opts.slot, slotLabel };
+    return { text: buildTouchstone(freqs, s11, s21, meta), note: retuneNote, calStale };
+  } finally {
+    // Never leave the device frozen, even if a read failed.
+    try { await vnaCmd('resume', 6000); } catch (_){}
+  }
+}
+
+/* ---- capture dialog ---- */
+
+const dlgVna = $('#dlg-vna');
+function vnaSetState(kind, html){
+  $('#vna-state').className = 'vna-state ' + (kind||'');
+  $('#vna-text').innerHTML = html;
+}
+/* Button labels and enabled state only — must NOT touch the sweep inputs, or it would
+   overwrite what the user typed before the retune check reads them. */
+function vnaRefreshUi(){
+  const on = !!vna.port;
+  $('#vna-form').hidden = !on;
+  $('#vna-disconnect').hidden = !on;
+  $('#vna-cal-btn').hidden = !on;
+  $('#vna-cal-btn').disabled = vna.busy;
+  $('#vna-go').textContent = on ? 'Capture sweep' : 'Connect';
+  $('#vna-go').disabled = vna.busy;
+  $('#vna-disconnect').disabled = vna.busy;
+}
+
+function vnaFillSlots(){
+  const sel = $('#vna-preset');
+  const keep = sel.value;
+  let html = '<option value="">Current device state</option>';
+  for (const s of (vna.slots || [])){
+    html += '<option value="' + s.id + '"' + (s.empty ? ' disabled' : '') + '>' +
+      'Slot ' + s.id + ' — ' + esc(s.empty ? 'empty' : s.label) + '</option>';
+  }
+  sel.innerHTML = html;
+  if (keep) sel.value = keep;
+  vnaSyncPresetUi();
+}
+
+/* A preset defines its own span, so the manual sweep fields are locked while one is
+   chosen. Editing them by hand keeps the old calibration, which is the thing to warn
+   about. */
+function vnaSyncPresetUi(){
+  const slot = $('#vna-preset').value;
+  const locked = slot !== '';
+  for (const id of ['#vna-start','#vna-stop','#vna-points']) $(id).disabled = locked;
+  // The manual-retune note contradicts the locked fields, so hide it under a preset.
+  const note = document.querySelector('.vna-note');
+  if (note) note.hidden = locked;
+  vnaRenderResolved();
+
+  const cal = vna.cal || '';
+  const box = $('#vna-cal');
+  box.hidden = false;
+  if (locked){
+    box.className = 'vna-cal';
+    box.innerHTML = 'Recalling a preset restores its calibration with its frequency plan — the capture is corrected.';
+  } else if (vnaEdited() && calIsApplied(cal)){
+    box.className = 'vna-cal warn';
+    box.innerHTML = 'Retuning by hand moves the frequencies but keeps the current calibration (<b>' +
+      esc(cal) + '</b>), so the capture will not be corrected at the new span. Pick a preset instead if one covers it.';
+  } else if (cal){
+    box.className = 'vna-cal';
+    box.innerHTML = 'Calibration: <b>' + esc(cal) + '</b>';
+  } else {
+    box.hidden = true;
+  }
+}
+
+/* Populate the sweep inputs from the device. Only on connect and after a retune. */
+function vnaFillSweepFields(){
+  if (!vna.sweep) return;
+  // dataset.hz keeps the device's exact frequency, so "edited" is decided in Hz. Comparing
+  // display text would misfire on a unit change, or when 899999900 Hz rounds to "900".
+  const u = $('#vna-unit').value;
+  for (const [id, hz] of [['#vna-start', vna.sweep.start], ['#vna-stop', vna.sweep.stop]]){
+    $(id).value = fmtInUnit(hz, u);
+    $(id).dataset.hz = String(hz);
+  }
+  $('#vna-points').value = String(vna.sweep.points);
+  $('#vna-points').dataset.orig = String(vna.sweep.points);
+  vnaSyncPresetUi();
+}
+
+$('#vna-preset').addEventListener('change', vnaSyncPresetUi);
+for (const id of ['#vna-start','#vna-stop','#vna-points'])
+  $(id).addEventListener('input', vnaSyncPresetUi);
+function vnaEdited(){
+  const u = $('#vna-unit').value;
+  for (const id of ['#vna-start','#vna-stop']){
+    const el = $(id), hz = resolveHz(el.value, u), base = Number(el.dataset.hz);
+    if (!isFinite(hz) || !isFinite(base) || Math.abs(hz - base) > 1) return true;
+  }
+  return $('#vna-points').value.trim() !== ($('#vna-points').dataset.orig || '');
+}
+
+$('#btn-vna').addEventListener('click', () => {
+  if (!vnaSupported()){
+    toast('Live capture needs the Web Serial API — use Chrome or Edge, over https:// or localhost. ' +
+          'From a file:// page it is unavailable; the capture-nanovna.ps1 script works there instead.', 'warn');
+    return;
+  }
+  vnaSetState(vna.port ? 'ok' : '', vna.port ? 'Connected' : 'Not connected');
+  if (vna.port && vna.label) vnaSetState('ok', '<b>' + esc(vna.label) + '</b>');
+  vnaRefreshUi();
+  dlgVna.showModal();
+  // Re-read: sweep, calibration and slots may all have changed on the device since we
+  // last looked (the user has its knobs too).
+  if (vna.port && !vna.busy){
+    (async () => {
+      const s = await vnaReadSweep().catch(() => null);
+      if (s) vna.sweep = s;
+      vna.cal = await vnaReadCal().catch(() => vna.cal);
+      vna.slots = await vnaListSlots().catch(() => vna.slots);
+      vnaFillSlots();
+      vnaFillSweepFields();
+    })();
+  }
+});
+$('#vna-close').addEventListener('click', () => dlgVna.close());
+
+$('#vna-disconnect').addEventListener('click', async () => {
+  await vnaDisconnect();
+  vna.label = null;
+  vnaSetState('', 'Not connected');
+  vnaRefreshUi();
+});
+
+$('#vna-go').addEventListener('click', async () => {
+  if (vna.busy) return;
+  // --- connect ---
+  if (!vna.port){
+    vna.busy = true; vnaRefreshUi();
+    vnaSetState('busy', 'Opening port...');
+    try {
+      const d = await vnaConnect();
+      vna.label = d.model + (d.ver ? ' · ' + d.ver : '');
+      vnaSetState('ok', '<b>' + esc(d.model) + '</b> <span>' + esc(d.ver) + '</span>');
+      vnaFillSlots();
+      vnaFillSweepFields();
+    } catch (err){
+      await vnaDisconnect();
+      vnaSetState('err', esc(/No port selected/i.test(err.message)
+        ? 'No device selected.' : err.message));
+    }
+    vna.busy = false; vnaRefreshUi();
+    return;
+  }
+  // --- capture ---
+  vna.busy = true; vnaRefreshUi();
+  try {
+    const slotVal = $('#vna-preset').value;
+    const slot = slotVal === '' ? null : parseInt(slotVal, 10);
+    const slotLabel = slot == null ? null
+      : ((vna.slots || []).find(s => s.id === slot) || {}).label;
+
+    let retune = null;
+    if (slot == null && vnaEdited()){
+      const u = $('#vna-unit').value;
+      const start = resolveHz($('#vna-start').value, u), stop = resolveHz($('#vna-stop').value, u);
+      const pts = parseInt($('#vna-points').value, 10);
+      if (!(isFinite(start) && isFinite(stop) && stop > start && pts > 1))
+        throw new Error('Check the sweep fields — need a start below the stop and at least 2 points.');
+      retune = { start:Math.round(start), stop:Math.round(stop), points:pts };
+    }
+    const cap = await vnaCapture({ withS21:$('#vna-s21').checked, slot, slotLabel, retune },
+                                 m => vnaSetState('busy', esc(m)));
+    const ext = $('#vna-s21').checked ? 's2p' : 's1p';
+    const now = new Date();
+    const hh = String(now.getHours()).padStart(2,'0'), mm = String(now.getMinutes()).padStart(2,'0'),
+          ss = String(now.getSeconds()).padStart(2,'0');
+    const name = 'VNA ' + hh + ':' + mm + ':' + ss + '.' + ext;
+    const tr = addFile(name, cap.text);
+    tr.captured = cap.text;
+    vnaFillSweepFields();
+    redraw();
+    vnaSetState('ok', 'Captured <b>' + tr.data.n + '</b> points, ' +
+      esc(fmtFreq(tr.data.freq[0],3) + ' – ' + fmtFreq(tr.data.freq[tr.data.n-1],3)));
+    toast('Captured ' + name + ' (' + tr.data.n + ' points).', 'ok');
+    if (cap.note) toast(cap.note, 'warn');
+    if (cap.calStale) toast('Sweep was retuned by hand, so this capture is not calibration-corrected at those frequencies.', 'warn');
+    dlgVna.close();
+  } catch (err){
+    vnaSetState('err', esc(err.message));
+    toast('Capture failed: ' + err.message, 'err');
+  }
+  vna.busy = false; vnaRefreshUi();
+});
+
+if (vnaSupported()){
+  navigator.serial.addEventListener('disconnect', e => {
+    if (vna.port && e.target === vna.port){
+      vnaDisconnect();
+      vna.label = null;
+      vnaSetState('err', 'The VNA was unplugged.');
+      vnaRefreshUi();
+      toast('The VNA was disconnected.', 'warn');
+    }
+  });
+}
+
+/* ========================= frequency unit selectors ========================= */
+
+/** Bare number for `hz` expressed in `unit`, with just enough digits to round-trip. */
+function fmtInUnit(hz, unit){
+  if (!isFinite(hz)) return '';
+  let s = (hz / FREQ_MULT[unit]).toFixed(9);
+  if (s.indexOf('.') !== -1) s = s.replace(/0+$/, '').replace(/\.$/, '');
+  return s;
+}
+/** Field text -> Hz. A unit typed into the box still wins over the dropdown. */
+function resolveHz(str, unit){
+  const t = String(str).trim();
+  if (!t) return NaN;
+  if (/[a-z]/i.test(t)) return parseFreq(t);
+  const v = parseFloat(normalizeNumber(t));
+  return isFinite(v) ? Math.round(v * FREQ_MULT[unit]) : NaN;
+}
+/** Switching unit re-expresses the same frequency; it never reinterprets the digits. */
+function bindUnit(selId, fieldIds, after){
+  const sel = $(selId);
+  sel.dataset.prev = sel.value;
+  sel.addEventListener('change', () => {
+    const prev = sel.dataset.prev || 'mhz';
+    for (const id of fieldIds){
+      const hz = resolveHz($(id).value, prev);
+      if (isFinite(hz)) $(id).value = fmtInUnit(hz, sel.value);
+    }
+    sel.dataset.prev = sel.value;
+    if (after) after();
+  });
+}
+/** Live echo of how the typed span was understood — the only honest answer to a comma
+    that could be either a decimal point or a thousands separator. */
+function renderResolved(elId, startId, stopId, ptsId, unitId, hide){
+  const el = $(elId);
+  if (hide){ el.hidden = true; return; }
+  const u = $(unitId).value;
+  const a = resolveHz($(startId).value, u), b = resolveHz($(stopId).value, u);
+  const n = parseInt($(ptsId).value, 10);
+  if (!isFinite(a) || !isFinite(b)){ el.hidden = true; return; }
+  const amb = commaAmbiguous($(startId).value) || commaAmbiguous($(stopId).value);
+  el.hidden = false;
+  el.className = 'vna-resolved' + (amb ? ' amb' : '');
+  let t = '&rarr; <b>' + esc(fmtFreq(a,6)) + '</b> to <b>' + esc(fmtFreq(b,6)) + '</b>';
+  if (isFinite(n) && n > 1) t += ' &middot; ' + n + ' points';
+  if (amb) t += '<br>A comma can mean a decimal point or a thousands separator — read here as a <b>decimal point</b>.';
+  el.innerHTML = t;
+}
+function vnaRenderResolved(){
+  renderResolved('#vna-resolved','#vna-start','#vna-stop','#vna-points','#vna-unit',
+                 $('#vna-preset').value !== '');
+}
+function calRenderResolved(){
+  renderResolved('#cal-resolved','#cal-start','#cal-stop','#cal-points','#cal-unit', false);
+}
+
+bindUnit('#vna-unit', ['#vna-start','#vna-stop'], () => vnaSyncPresetUi());
+bindUnit('#cal-unit', ['#cal-start','#cal-stop'], calRenderResolved);
+for (const id of ['#cal-start','#cal-stop','#cal-points'])
+  $(id).addEventListener('input', calRenderResolved);
+
+/* =========================== calibration wizard ============================ */
+/*
+ * The cal subcommands are live over serial on this firmware (verified: "cal off"
+ * changes the returned data by ~200x the pass-to-pass noise, "cal on" restores it
+ * exactly). The standards still have to be swapped by hand, so this is a guided
+ * sequence, not automation.
+ *
+ * "cal reset" is deliberately deferred until the first Measure, so backing out of the
+ * setup screen destroys nothing. "save <id>" is the only destructive command here and
+ * is never sent without an explicit second confirmation.
+ */
+
+const CAL_STEPS = {
+  open:  { label:'OPEN',  hint:'Connect the <b>OPEN</b> standard to <b>CH0</b> (the S11 / reflection port).' },
+  short: { label:'SHORT', hint:'Connect the <b>SHORT</b> standard to <b>CH0</b>.' },
+  load:  { label:'LOAD',  hint:'Connect the <b>LOAD</b> (50 &#8486;) standard to <b>CH0</b>.' },
+  thru:  { label:'THRU',  hint:'Connect <b>CH0 to CH1</b> with a through adapter or a known cable.' },
+};
+
+const calw = { phase:'setup', steps:[], idx:0, busy:false, armed:false, result:'' };
+const dlgCal = $('#dlg-cal');
+
+function calRender(){
+  const p = calw.phase;
+  $('#cal-setup').hidden   = p !== 'setup';
+  $('#cal-measure').hidden = p !== 'measure';
+  $('#cal-save').hidden    = p !== 'save';
+
+  const next = $('#cal-next');
+  next.disabled = calw.busy;
+  $('#cal-cancel').disabled = calw.busy;
+  next.className = 'btn primary';
+
+  if (p === 'setup'){
+    next.textContent = 'Start calibration';
+    $('#cal-sub').textContent = '';
+  } else if (p === 'measure'){
+    const cur = calw.steps[calw.idx];
+    $('#cal-sub').textContent = 'step ' + (calw.idx+1) + ' of ' + calw.steps.length;
+    $('#cal-steps').innerHTML = calw.steps.map((s,i) =>
+      '<li class="' + (i < calw.idx ? 'done' : i === calw.idx ? 'now' : '') + '">' +
+      (i < calw.idx ? '&#10003; ' : '') + CAL_STEPS[s].label + '</li>').join('');
+    $('#cal-instruct').innerHTML = calw.busy
+      ? 'Measuring ' + CAL_STEPS[cur].label + '&hellip;<span class="sub">Letting the sweep settle, then recording it.</span>'
+      : CAL_STEPS[cur].hint + '<span class="sub">Make it finger-tight, then press Measure. ' +
+        'The sweep keeps running while you connect it.</span>';
+    next.textContent = calw.busy ? 'Measuring…' : 'Measure ' + CAL_STEPS[cur].label;
+  } else {
+    $('#cal-sub').textContent = '';
+    $('#cal-result').textContent = 'Calibration applied — ' + (calw.result || 'done');
+    const slotSel = document.querySelector('input[name=calsave]:checked').value === 'slot';
+    $('#cal-slot').disabled = !slotSel;
+    const id = parseInt($('#cal-slot').value, 10);
+    const slot = (vna.slots || []).find(s => s.id === id);
+    if (slotSel && slot){
+      $('#cal-overwrite').hidden = false;
+      $('#cal-overwrite').innerHTML = slot.empty
+        ? 'Slot <b>' + id + '</b> is empty — nothing will be lost.'
+        : 'Slot <b>' + id + '</b> currently holds <b>' + esc(slot.label) + '</b>. Saving <b>destroys it permanently</b> ' +
+          'and there is no undo on the device.';
+    } else {
+      $('#cal-overwrite').hidden = true;
+    }
+    if (calw.armed){
+      next.className = 'btn danger';
+      next.textContent = 'Yes — overwrite slot ' + id;
+    } else {
+      next.textContent = slotSel ? 'Save to slot ' + (isFinite(id) ? id : '') : 'Finish';
+    }
+  }
+}
+
+function calFillSlots(){
+  $('#cal-slot').innerHTML = (vna.slots || []).map(s =>
+    '<option value="' + s.id + '">Slot ' + s.id + ' — ' + esc(s.empty ? 'empty' : s.label) + '</option>').join('');
+}
+
+$('#vna-cal-btn').addEventListener('click', () => {
+  if (!vna.port) return;
+  calw.phase = 'setup'; calw.idx = 0; calw.busy = false; calw.armed = false; calw.result = '';
+  if (vna.sweep){
+    const cu = $('#cal-unit').value;
+    $('#cal-start').value  = fmtInUnit(vna.sweep.start, cu);
+    $('#cal-stop').value   = fmtInUnit(vna.sweep.stop, cu);
+    $('#cal-points').value = String(vna.sweep.points);
+  }
+  calRenderResolved();
+  calFillSlots();
+  calRender();
+  dlgCal.showModal();
+});
+$('#cal-cancel').addEventListener('click', () => {
+  if (calw.busy) return;
+  const partial = calw.phase === 'measure';
+  dlgCal.close();
+  if (partial)
+    toast('Calibration cancelled part-way — the working calibration is incomplete. Recall a preset to restore a known-good one.', 'warn');
+});
+document.querySelectorAll('input[name=calsave]').forEach(r =>
+  r.addEventListener('change', () => { calw.armed = false; calRender(); }));
+$('#cal-slot').addEventListener('change', () => { calw.armed = false; calRender(); });
+
+$('#cal-next').addEventListener('click', async () => {
+  if (calw.busy) return;
+
+  // ---------- setup -> begin ----------
+  if (calw.phase === 'setup'){
+    calw.busy = true; calRender();
+    try {
+      const cu = $('#cal-unit').value;
+      const start = resolveHz($('#cal-start').value, cu), stop = resolveHz($('#cal-stop').value, cu);
+      const pts = parseInt($('#cal-points').value, 10);
+      if (!(isFinite(start) && isFinite(stop) && stop > start && pts > 1))
+        throw new Error('Check the span — need a start below the stop and at least 2 points.');
+      const want = { start:Math.round(start), stop:Math.round(stop), points:pts };
+      const same = vna.sweep && vna.sweep.start === want.start &&
+                   vna.sweep.stop === want.stop && vna.sweep.points === want.points;
+      if (!same){
+        await vnaCmd('sweep ' + want.start + ' ' + want.stop + ' ' + want.points, 15000);
+        await sleep(Math.min(6000, 1200 + want.points * 8));
+        const got = await vnaReadSweep().catch(() => null);
+        vna.sweep = got || want;
+      }
+      await vnaCmd('resume', 6000);
+      await vnaCmd('cal reset', 8000);
+      calw.steps = $('#cal-thru').checked ? ['open','short','load','thru'] : ['open','short','load'];
+      calw.idx = 0;
+      calw.phase = 'measure';
+    } catch (err){
+      toast('Could not start calibration: ' + err.message, 'err');
+    }
+    calw.busy = false; calRender();
+    return;
+  }
+
+  // ---------- measure one standard ----------
+  if (calw.phase === 'measure'){
+    const step = calw.steps[calw.idx];
+    calw.busy = true; calRender();
+    try {
+      // The firmware records the current sweep, so let a full pass complete first.
+      await sleep(Math.min(6000, 1200 + ((vna.sweep && vna.sweep.points) || 201) * 8));
+      await vnaCmd('cal ' + step, 20000);
+      calw.idx++;
+      if (calw.idx >= calw.steps.length){
+        await vnaCmd('cal done', 20000);
+        await sleep(600);
+        vna.cal = await vnaReadCal().catch(() => '');
+        calw.result = vna.cal || 'applied';
+        calw.phase = 'save';
+        calw.armed = false;
+        vnaSyncPresetUi();
+      }
+    } catch (err){
+      toast('Calibration step "' + step + '" failed: ' + err.message, 'err');
+    }
+    calw.busy = false; calRender();
+    return;
+  }
+
+  // ---------- finish: keep in RAM, or save (two-step) ----------
+  const wantSlot = document.querySelector('input[name=calsave]:checked').value === 'slot';
+  if (!wantSlot){
+    dlgCal.close();
+    toast('Calibration applied to working state — not saved to a slot.', 'ok');
+    return;
+  }
+  const id = parseInt($('#cal-slot').value, 10);
+  if (!isFinite(id)) return;
+  if (!calw.armed){                      // first press only arms the destructive action
+    calw.armed = true; calRender();
+    return;
+  }
+  calw.busy = true; calRender();
+  try {
+    await vnaCmd('save ' + id, 15000);
+    await sleep(500);
+    vna.slots = await vnaListSlots().catch(() => vna.slots);
+    calFillSlots(); vnaFillSlots();
+    dlgCal.close();
+    toast('Calibration saved to slot ' + id + '.', 'ok');
+  } catch (err){
+    toast('Saving to slot ' + id + ' failed: ' + err.message, 'err');
+  }
+  calw.busy = false; calw.armed = false; calRender();
+});
+
+/* ============================== interaction ================================ */
+
+function canvasFreq(e){
+  const m = drawRect.map;
+  if (!m) return null;
+  const r = el.rect.getBoundingClientRect();
+  const px = e.clientX - r.left;
+  if (px < m.L || px > m.R) return null;
+  return m.invX(px);
+}
+
+el.rect.addEventListener('pointermove', e => {
+  if (state.drag){
+    state.drag.x1 = e.clientX - el.rect.getBoundingClientRect().left;
+    redrawCharts(); return;
+  }
+  const f = canvasFreq(e);
+  if (f !== state.hover){ state.hover = f; redrawCharts(); renderTable(); }
+});
+el.rect.addEventListener('pointerleave', () => {
+  if (state.hover != null){ state.hover = null; redrawCharts(); renderTable(); }
+});
+el.rect.addEventListener('pointerdown', e => {
+  if (e.button !== 0) return;
+  const m = drawRect.map;
+  if (!m) return;
+  const x = e.clientX - el.rect.getBoundingClientRect().left;
+  if (x < m.L || x > m.R) return;
+  state.drag = { x0:x, x1:x };
+  el.rect.setPointerCapture(e.pointerId);
+});
+el.rect.addEventListener('pointerup', e => {
+  const d = state.drag;
+  state.drag = null;
+  const m = drawRect.map;
+  if (!d || !m) return;
+  try { el.rect.releasePointerCapture(e.pointerId); } catch (_){}
+  if (Math.abs(d.x1 - d.x0) > 6){
+    const a = m.invX(Math.min(d.x0,d.x1)), b = m.invX(Math.max(d.x0,d.x1));
+    if (isFinite(a) && isFinite(b) && b > a){
+      state.zoom = { lo:a, hi:b };
+      $('#btn-reset-zoom').hidden = false;
+    }
+  } else {
+    const f = canvasFreq(e);
+    if (f != null){
+      // Remember the pre-click marker so a double-click (reset zoom) can put it back.
+      const now = performance.now();
+      if (now - (state._lastClick || 0) > 400) state._prevMarker = state.marker;
+      state._lastClick = now;
+      state.marker = f; $('#mk-freq').value = fmtFreq(f); $('#mk-snap').value = state.snap = '';
+    }
+  }
+  redraw();
+});
+el.rect.addEventListener('dblclick', () => {
+  state.zoom = null;
+  $('#btn-reset-zoom').hidden = true;
+  if ('_prevMarker' in state){
+    state.marker = state._prevMarker;
+    $('#mk-freq').value = isFinite(state.marker) ? fmtFreq(state.marker) : '';
+  }
+  redraw();
+});
+$('#btn-reset-zoom').addEventListener('click', () => { state.zoom = null; $('#btn-reset-zoom').hidden = true; redraw(); });
+
+function segment(sel, fn){
+  $(sel).addEventListener('click', e => {
+    const b = e.target.closest('button');
+    if (!b) return;
+    $(sel).querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+    fn(b.dataset.v);
+  });
+}
+segment('#seg-quantity', v => { state.quantity = v; redraw(); });
+segment('#seg-xscale', v => { state.xscale = v; redraw(); });
+segment('#seg-yscale', v => {
+  state.yauto = v === 'auto';
+  $('#ylim-row').hidden = state.yauto;
+  redraw();
+});
+$('#y-min').addEventListener('input', e => { state.ymin = parseFloat(e.target.value); redraw(); });
+$('#y-max').addEventListener('input', e => { state.ymax = parseFloat(e.target.value); redraw(); });
+$('#limit-line').addEventListener('input', e => {
+  const v = parseFloat(e.target.value);
+  state.limit = isFinite(v) ? v : null;
+  redraw();
+});
+$('#chk-smith').addEventListener('change', e => {
+  state.smith = e.target.checked;
+  el.smithBox.classList.toggle('on', state.smith);
+  redraw();
+});
+$('#mk-freq').addEventListener('input', e => {
+  const f = parseFreq(e.target.value);
+  state.marker = isFinite(f) ? f : NaN;
+  state.snap = ''; $('#mk-snap').value = '';
+  redrawCharts(); renderTable();
+});
+$('#mk-snap').addEventListener('change', e => {
+  state.snap = e.target.value;
+  applySnap();
+  redrawCharts(); renderTable();
+});
+
+function applySnap(quiet){
+  if (!state.snap) return;
+  const vis = visibleTraces();
+  if (!vis.length){ if (!quiet) toast('No visible trace to snap to.', 'warn'); return; }
+  let bestF = NaN, bestV = state.snap === 's21max' ? -Infinity : Infinity, from = null;
+  for (const t of vis){
+    const d = t.data;
+    if (state.snap === 's21max'){
+      if (!d.measured.s21) continue;
+      for (let i=0;i<d.n;i++){
+        const v = toDb(d.S.s21.re[i], d.S.s21.im[i]);
+        if (v > bestV){ bestV = v; bestF = d.freq[i]; from = t; }
+      }
+    } else {
+      for (let i=0;i<d.n;i++){
+        const v = mag(d.S.s11.re[i], d.S.s11.im[i]);
+        if (v < bestV){ bestV = v; bestF = d.freq[i]; from = t; }
+      }
+    }
+  }
+  if (!isFinite(bestF)){ if (!quiet) toast('No measured data for that snap target.', 'warn'); return; }
+  state.marker = bestF;
+  $('#mk-freq').value = fmtFreq(bestF);
+  if (!quiet) toast('Marker at ' + fmtFreq(bestF) + ' (' + from.name + ').', 'ok');
+}
+
+/* ================================= theme =================================== */
+
+$('#btn-theme').addEventListener('click', () => {
+  const cur = document.documentElement.getAttribute('data-theme');
+  const next = cur === 'dark' ? 'light' : cur === 'light' ? 'auto' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  try { localStorage.setItem('vna-theme', next); } catch (_){}
+  refreshTheme(); redraw();
+});
+try {
+  const saved = localStorage.getItem('vna-theme');
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+} catch (_){}
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { refreshTheme(); redraw(); });
+
+/* ================================ exports ================================== */
+
+function download(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+
+$('#btn-csv').addEventListener('click', () => {
+  const vis = visibleTraces();
+  if (!vis.length) return;
+  const rows = ['file,freq_hz,s11_re,s11_im,s11_db,swr,r_ohm,x_ohm,s21_re,s21_im,s21_db'];
+  for (const t of vis){
+    const d = t.data, s = d.S.s11, s2 = d.measured.s21 ? d.S.s21 : null;
+    for (let i=0;i<d.n;i++){
+      const z = toZ(s.re[i], s.im[i], d.z0), sw = toSwr(s.re[i], s.im[i]);
+      const c = [
+        '"' + t.name.replace(/"/g,'""') + '"', d.freq[i],
+        s.re[i], s.im[i], num(toDb(s.re[i], s.im[i])), num(sw),
+        num(z.r), num(z.x),
+        s2 ? s2.re[i] : '', s2 ? s2.im[i] : '', s2 ? num(toDb(s2.re[i], s2.im[i])) : '',
+      ];
+      rows.push(c.join(','));
+    }
+  }
+  download(new Blob([rows.join('\r\n')], { type:'text/csv' }), 'nanovna-export.csv');
+  toast('CSV exported.', 'ok');
+});
+function num(v){ return isFinite(v) ? v.toPrecision(8) : ''; }
+
+$('#btn-png').addEventListener('click', () => {
+  const src = [el.rect].concat(state.smith ? [el.smith] : []);
+  const gap = state.smith ? 1 : 0;
+  const W = src.reduce((a,c) => a + c.width, 0) + gap;
+  const H = Math.max.apply(null, src.map(c => c.height));
+  const out = document.createElement('canvas');
+  out.width = W; out.height = H;
+  const c = out.getContext('2d');
+  c.fillStyle = THEME.surface; c.fillRect(0,0,W,H);
+  let x = 0;
+  for (const s of src){ c.drawImage(s, x, 0); x += s.width + gap; }
+  out.toBlob(b => { download(b, 'nanovna-plot.png'); toast('PNG exported.', 'ok'); });
+});
+
+/* ================================= toasts ================================== */
+
+function toast(msg, kind){
+  const d = document.createElement('div');
+  d.className = 'toast ' + (kind||'');
+  d.textContent = msg;
+  $('#toasts').appendChild(d);
+  setTimeout(() => d.remove(), kind === 'err' ? 7000 : 4200);
+}
+
+/* ================================= redraw ================================== */
+
+let raf = 0;
+function redrawCharts(){
+  if (raf) return;
+  raf = requestAnimationFrame(() => { raf = 0; drawRect(); drawSmith(); });
+}
+function redraw(){
+  const has = state.traces.length > 0;
+  $('#btn-csv').disabled = $('#btn-png').disabled = !has;
+  if (state.snap) applySnap(true);
+  renderList();
+  renderTable();
+  redrawCharts();
+}
+
+new ResizeObserver(() => redrawCharts()).observe(el.rectBox);
+new ResizeObserver(() => redrawCharts()).observe(el.smithBox);
+window.addEventListener('resize', redrawCharts);
+
+refreshTheme();
+redraw();
+</script>
+</body>
+</html>
