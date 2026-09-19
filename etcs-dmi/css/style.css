@@ -448,3 +448,69 @@ dialog#areamap::backdrop { background: rgba(0, 0, 0, .65); }
 .quiz-map .dmi-map.done .map-pick { pointer-events: none; }
 .map-pick.ok { fill: rgba(40, 160, 60, .45); stroke: #3dbf57; stroke-width: 2; }
 .map-pick.bad { fill: rgba(191, 0, 2, .5); stroke: var(--dmi-red); stroke-width: 2; }
+
+/* ---------- phone layout: compact, collapsible header ---------- */
+/* header.app is sticky, so at phone width its full-size layout (wrapped title,
+   sub-heading, three toolbar rows and five rows of chips) covered over half the
+   screen with no way to dismiss it. On a narrow screen — or a short one, which is
+   the same phone held in landscape — it is compacted, and the filters collapse
+   away behind #filtersToggle. Desktop layout is untouched. */
+
+.filters-toggle {
+  display: none;
+  float: right;
+  margin: 2px 8px 0 0;
+  background: var(--dmi-panel);
+  color: var(--dmi-grey);
+  border: 1px solid var(--dmi-panel2);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: .8rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+}
+.filters-toggle:hover { background: var(--dmi-panel2); }
+
+@media (max-width: 640px), (max-height: 480px) {
+  header.app { padding: 8px 12px; }
+  /* the floated controls hang out of the h1 and squeeze the toolbar's first row,
+     so the title row becomes a flex row instead: title, controls pushed hard
+     right, and the spec version wrapped onto a line of its own */
+  header.app h1 {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px 8px;
+    font-size: 1.02rem;
+    line-height: 1.3;
+  }
+  header.app h1 .v { order: 3; flex: 1 1 100%; margin-left: 0; font-size: .72rem; font-weight: 500; }
+  header.app .sub { display: none; }
+
+  .filters-toggle { display: inline-block; float: none; order: 1; margin: 0 0 0 auto; }
+  /* margin-left:auto on both keeps them flush right, stacked when they wrap */
+  .lang-switch { float: none; order: 2; margin: 0 0 0 auto; }
+
+  .toolbar { gap: 6px; margin-top: 8px; }
+  /* the fixed 270px is what forced the toolbar onto three rows and clipped the
+     placeholder; let search and the colour filter share the first row instead */
+  #search { width: auto; flex: 1 1 150px; min-width: 0; }
+  #colorSel { flex: 1 1 105px; min-width: 0; }
+  /* 16px stops iOS Safari zooming the page in when a field takes focus */
+  #search, #colorSel { font-size: 16px; }
+
+  /* one horizontally scrolling row instead of five wrapped ones */
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 2px;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .chips::-webkit-scrollbar { display: none; }
+  .chips .chip { flex: 0 0 auto; white-space: nowrap; }
+
+  header.app.collapsed .toolbar,
+  header.app.collapsed .chips { display: none; }
+}

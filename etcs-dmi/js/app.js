@@ -25,6 +25,9 @@ const EN_UI = {
   colorWhite: "White",
   colorDarkgrey: "Dark grey (disabled)",
   allChip: "All",
+  filtersBtn: "Filters",
+  filtersShow: "Show filters",
+  filtersHide: "Hide filters",
   symbols: n => n + " symbol" + (n === 1 ? "" : "s"),
   empty: "No symbols match your filter.",
   soundsTitle: "DMI sounds (chapter 14)",
@@ -159,6 +162,7 @@ function applyLang() {
   $("#footer").innerHTML = trUI("footer");
   $("#detailClose").textContent = trUI("close");
   $$(".lang-btn").forEach(b => b.classList.toggle("active", b.dataset.lang === lang));
+  applyFiltersCollapsed();
   buildChips();
   buildSounds();
   renderMessages();
@@ -176,6 +180,25 @@ function setLang(l) {
 }
 
 /* ---------- filter bar ---------- */
+/* header.app is sticky, so on a phone the filters can be collapsed out of the
+   way. The class is set at every width but only acted on by the phone media
+   query, so a stored preference never hides the filters on a desktop. */
+let filtersCollapsed = localStorage.getItem("dmi-filters") === "collapsed";
+
+function applyFiltersCollapsed() {
+  $("header.app").classList.toggle("collapsed", filtersCollapsed);
+  const b = $("#filtersToggle");
+  b.textContent = (filtersCollapsed ? "▸ " : "▾ ") + trUI("filtersBtn");
+  b.title = trUI(filtersCollapsed ? "filtersShow" : "filtersHide");
+  b.setAttribute("aria-expanded", filtersCollapsed ? "false" : "true");
+}
+
+function toggleFilters() {
+  filtersCollapsed = !filtersCollapsed;
+  localStorage.setItem("dmi-filters", filtersCollapsed ? "collapsed" : "open");
+  applyFiltersCollapsed();
+}
+
 function buildChips() {
   const bar = $("#catChips");
   bar.innerHTML = "";
@@ -538,6 +561,7 @@ document.addEventListener("DOMContentLoaded", () => {
   $("#search").addEventListener("input", e => { query = e.target.value.trim().toLowerCase(); render(); });
   $("#colorSel").addEventListener("change", e => { colorFilter = e.target.value; render(); });
   $$(".lang-btn").forEach(b => b.addEventListener("click", () => setLang(b.dataset.lang)));
+  $("#filtersToggle").addEventListener("click", toggleFilters);
   $("#detailClose").addEventListener("click", () => $("#detail").close());
   $("#detail").addEventListener("click", e => { if (e.target === $("#detail")) $("#detail").close(); });
   $("#detail").addEventListener("close", () => history.replaceState(null, "", location.pathname + location.search));
