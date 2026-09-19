@@ -131,8 +131,8 @@ usable — Type K to 1372 °C, B to 1820 °C). New families must define `hard` (
 
 ### sprint-ibom
 **Vendored copy — do not edit here.** Upstream source is
-`C:\Users\Michal\Documents\Sprint-WebiBom\ibom-sprint-project\app`. Changes are made upstream
-and re-synced into this repo; anything edited directly in `sprint-ibom/` is lost on the next sync.
+`../upstream/sprint-ibom/app` — this repo and `upstream/` are siblings inside the
+`Websites-Public` hub. Changes are made upstream and re-synced into this repo; anything edited directly in `sprint-ibom/` is lost on the next sync.
 
 Re-sync procedure:
 1. `cp <upstream>/app/* sprint-ibom/`
@@ -151,7 +151,7 @@ The app parses Sprint Layout `.lay6` binaries entirely client-side and renders t
 
 ### vna-viewer
 **Vendored copy — do not edit here.** Upstream source is
-`C:\Users\Michal\Documents\VNA_Viewer`. Same rule as `sprint-ibom`: change it upstream and
+`../upstream/vna-viewer`. Same rule as `sprint-ibom`: change it upstream and
 re-sync; edits made directly here are lost on the next sync.
 
 Published subset. Upstream also carries `make-manifest.js`, `docs.md`, `CLAUDE.md`, `test/`,
@@ -192,8 +192,9 @@ Things that will bite you:
 
 ### etcs-dmi
 **Vendored copy — do not edit here.** Upstream source is
-`C:\Users\Michal\Documents\ETCS_WebTool` (note: the folder name says WebTool, but this is the DMI
-symbol catalogue, nothing to do with `etcs`/`etcs-v2`, which are the inclinometer helpers).
+`../upstream/etcs-dmi` (it was called `ETCS_WebTool` before the 2026-09-19 consolidation;
+despite that old name it is the DMI symbol catalogue, nothing to do with `etcs`/`etcs-v2`,
+which are the inclinometer helpers).
 
 Upstream is ~8 MB / 1408 files; **only ~1.2 MB / 185 files are published.** Ship exactly this:
 
