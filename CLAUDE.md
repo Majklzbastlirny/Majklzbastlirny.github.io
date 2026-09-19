@@ -45,9 +45,13 @@ etcs-dmi/             ETCS DMI symbol catalogue — VENDORED, published subset o
    at the end of the Experimental `.grid` div.
 5. **If a tool's URL ever changes, leave a redirect stub** at the old path (copy the pattern from
    any root `*.html` stub: meta refresh + `location.replace` + visible fallback link, relative URLs).
-6. **Self-contained pages.** Inline CSS/JS. No CDNs except Google Fonts (used by orientation and
-   sensorcalc). Prefer inline SVG over images — `etcs-v2`'s radar drawing is a potrace-traced
-   inline SVG precisely so no binary asset is needed.
+6. **Self-contained pages. No CDNs at all** — that exception is gone as of 2026-09-19.
+   Inline CSS/JS, or a file under `../assets/`. Webfonts are self-hosted in
+   `assets/fonts/` (`<link rel="stylesheet" href="../assets/fonts/fonts.css">`); three.js and
+   html2canvas live in `assets/` too. A CDN would leak the visitor's IP to a third party and
+   break the tool on a bench laptop with no network, which is the whole point of the rule.
+   Prefer inline SVG over images — `etcs-v2`'s radar drawing is a potrace-traced inline SVG
+   precisely so no binary asset is needed.
 7. **Dark theme.** The site look is dark; each tool has its own palette but must not be a white
    page. Landing page palette: bg `#0b1220`, card `#10192b`, border `#1a2740`, accent `#6ea8fe`,
    muted `#9aa4b2`. `fluke` reuses exactly this palette; `orientation` uses a GitHub-dark scheme;
