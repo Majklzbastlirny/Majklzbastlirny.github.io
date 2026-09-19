@@ -62,7 +62,29 @@ etcs-dmi/             ETCS DMI symbol catalogue — VENDORED, published subset o
 
 ## Adding a new tool — checklist
 
+**First decide where it lives.** Two routes, and the cheap one is the default:
+
+- **Straight in this repo** — the tool is one self-contained `index.html` and nothing sits behind
+  it that shouldn't be public. This is how every tool but three was built. No sync step, no back
+  link to re-apply, no second copy to keep in step: you edit it in place. Small dev files may live
+  in the folder too — `sensorcalc` ships its own `CLAUDE.md` and `validate.mjs` — they are simply
+  never linked from anywhere.
+- **A project in `../upstream/` with a vendored copy here** — only when the tool needs material
+  that must *not* be published: large source extracts, licensed documents, vendor assets, test
+  fixtures, build scripts. The three that qualify are `sprint-ibom` (test boards and their gerber
+  exports), `vna-viewer` (test suite, capture tooling, generated manifest) and `etcs-dmi` (8 MB of
+  spec extract including the ERA PDF, of which 1.2 MB ships).
+
+Vendoring costs you something every single update — copy the subset, re-apply the back link, diff
+to prove nothing else moved. Only take that on when the project genuinely has unpublishable
+material. Size alone is not a reason: `vna-viewer`'s own `index.html` is 124 KB and sits here
+happily. If you start a tool in this repo and it later grows fixtures or a build step, moving it
+to `upstream/` then is easy; guessing wrong in advance costs more.
+
 1. Create `newtool/index.html`, self-contained, dark, with the `← Tools` back link.
+   (Vendored route: build it in `../upstream/newtool/` first, then copy the runtime subset here
+   and add the back link — record the published subset and the back-link anchor in Per-tool
+   notes, as the other three do.)
 2. Add a card to the Experimental section of `/index.html` (icon emoji, `<h2>`, one-sentence `<p>`).
 3. If it needs shared assets, reference them as `../assets/...`.
 4. Test locally: `npx http-server -p 8931` from the repo root (also click through from the
