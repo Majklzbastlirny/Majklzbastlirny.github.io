@@ -51,7 +51,9 @@ etcs-dmi/             ETCS DMI symbol catalogue — VENDORED, published subset o
    html2canvas live in `assets/` too. A CDN would leak the visitor's IP to a third party and
    break the tool on a bench laptop with no network, which is the whole point of the rule.
    Prefer inline SVG over images — `etcs-v2`'s radar drawing is a potrace-traced inline SVG
-   precisely so no binary asset is needed.
+   precisely so no binary asset is needed. **That trace, and `assets/tilt-diagram.png` and
+   `slope-diagram.png`, come from DEUTA-WERKE and Alstom manuals — they are not original work
+   and are not MIT. See `THIRD-PARTY.md` before reusing or redistributing them.**
 7. **Dark theme.** The site look is dark; each tool has its own palette but must not be a white
    page. Landing page palette: bg `#0b1220`, card `#10192b`, border `#1a2740`, accent `#6ea8fe`,
    muted `#9aa4b2`. `fluke` reuses exactly this palette; `orientation` uses a GitHub-dark scheme;

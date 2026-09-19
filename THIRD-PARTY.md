@@ -30,12 +30,29 @@ Chakra Petch, DM Sans, IBM Plex Mono, IBM Plex Sans and JetBrains Mono, all unde
 to accompany the fonts wherever they are redistributed. See `assets/fonts/README.md` for the
 copyright holder of each family.
 
-## Installation diagrams — `assets/tilt-diagram.png`, `assets/slope-diagram.png`
+## Manufacturer documentation figures — `etcs-v2`
 
-Radar installation geometry diagrams used by `etcs-v2`. **Not covered by the MIT grant** unless
-and until their provenance is confirmed as original work. If they were traced or reproduced from
-manufacturer or commissioning documentation, they remain the property of that publisher; if they
-are original drawings, this entry can be removed and they fall under MIT with the rest.
+Three figures in `etcs-v2` are reproduced from proprietary technical manuals. **None of them
+are covered by the MIT grant**, and none are mine to relicense:
+
+| Figure | Where | Source |
+|---|---|---|
+| Radar outline | inline `<svg id="radar-img">` in `etcs-v2/index.html` | DEUTA-WERKE manual — potrace-traced from the manual figure |
+| Tilt geometry | `assets/tilt-diagram.png` | Alstom ETCS commissioning and maintenance guide |
+| Track slope geometry | `assets/slope-diagram.png` | Alstom ETCS commissioning and maintenance guide |
+
+They are used to show *where on the equipment* a measurement is taken, which is the whole point
+of the tool — a number without the reference geometry is not actionable. They are reproduced in
+good faith as a working aid for people who already hold the relevant documentation, not as a
+substitute for it.
+
+Note that the radar SVG being a *trace* rather than a copy does not change this: a traced
+reproduction of a figure is a derivative of it.
+
+If DEUTA-WERKE or Alstom object, these come out. Anyone redistributing this repository is
+redistributing their material and should satisfy themselves they may do so. Replacing all three
+with original drawings would remove the question entirely — they are simple geometry figures and
+redrawing them is not a large job.
 
 ## Sprint Layout `.lay6` format — `sprint-ibom/`
 

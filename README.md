@@ -32,8 +32,8 @@ survive. See `CLAUDE.md` for conventions and how to add a tool.
 MIT — see [`LICENSE`](LICENSE). That covers the code here.
 
 It does **not** cover everything shipped alongside it: the ETCS DMI symbols are © European
-Union Agency for Railways, the bundled libraries and webfonts carry their own licences, and a
-couple of diagrams have separate provenance. See [`THIRD-PARTY.md`](THIRD-PARTY.md) before
-redistributing any of it.
+Union Agency for Railways, the measurement geometry figures in `etcs-v2` come from DEUTA-WERKE
+and Alstom manuals, and the bundled libraries and webfonts carry their own licences. See
+[`THIRD-PARTY.md`](THIRD-PARTY.md) before redistributing any of it.
 
 No warranty — bench tools, verify against authoritative references before relying on results.
