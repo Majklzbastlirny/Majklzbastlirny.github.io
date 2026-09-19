@@ -16,7 +16,7 @@ features, not accidents.
 
 ```
 index.html            landing page (cards linking to every tool)
-assets/               shared between tools: html2canvas.min.js, tilt-diagram.png, slope-diagram.png
+assets/               shared between tools: html2canvas.min.js, three.min.js, tilt-diagram.png, slope-diagram.png
 etcs-v2/              ETCS Inclinometer Helper V2  (flagship tool)
 etcs/                 legacy V1 — kept as-is, do not invest in it
 uic7/  uic12/         UIC check-digit calculators (Czech UI)
@@ -26,6 +26,7 @@ orientation/          orientation/motion sensor lab
 sensorcalc/           temperature sensor calculator (has its own CLAUDE.md + validate.mjs)
 sprint-ibom/          Interactive BOM for Sprint Layout — VENDORED from an external repo, see notes
 vna-viewer/           NanoVNA Touchstone viewer — VENDORED from an external repo, see notes
+antenna-pattern/      antenna pattern analyzer (has HANDOFF.md + node test.mjs gate)
 etcs-dmi/             ETCS DMI symbol catalogue — VENDORED, published subset only, see notes
 *.html at root        redirect stubs (meta refresh + location.replace) from the old flat layout
 ```
@@ -245,6 +246,37 @@ Notes:
   which must be 0 (171 images on the grid, plus more inside the detail dialog).
 - Attribution to ERA is in the page footer and in `js/app.js` / `js/i18n_cs.js`. Keep it.
 - EN/CZ toggle is its own `i18n_cs.js`, unrelated to `etcs-v2`'s `data-i18n` system.
+
+### antenna-pattern
+In-repo tool (not vendored) with its own node regression harness, same shape as `sensorcalc`.
+Read `antenna-pattern/HANDOFF.md` before changing anything — it carries the design rationale and
+the full reference table.
+
+- **`node test.mjs` from the tool folder is the gate. 17 passed, 0 failed, or the change is
+  wrong.** It asserts against textbook values: Si(π)/Ci(π), ½λ dipole self-Z 73.1+j42.5 Ω,
+  mutual-Z at 0.5λ, directivities (isotropic 0, short dipole 1.76, ½λ 2.15, 1λ 3.82, ¼λ monopole
+  5.16 dBi), ½λ HPBW 78°, 1.5λ lobe splitting off-broadside, and Yagi 3/4/5/6-el at
+  8.40 / 9.15 / 9.57 / 10.21 dBi. If a change moves any of these, the change is the bug.
+- **`core.mjs` is the physics extracted verbatim from `index.html`.** The page does not load it —
+  it exists only so the harness can run in node. Edit the in-page physics and you must re-extract
+  `core.mjs`, or the two silently diverge and the gate starts testing the wrong code. Check they
+  agree (e.g. the `'5el'` preset line) before trusting a green run.
+- The harness already earned its keep: the shipped 5-el Yagi preset had `dirSp:.25`, over-spacing
+  the directors to 10.23 dBi — statistically tied with the 6-el and non-monotonic. Retuned to
+  `.21` (9.57 dBi). Keep gain increasing with element count when touching presets.
+- **Polar plots are absolute dBi, deliberately not normalised**, so a higher-gain antenna pushes
+  its lobe outward instead of every pattern filling the plot. HANDOFF.md says explicitly: do not
+  "fix" this into normalised plots.
+- **Local modification vs upstream:** `HANDOFF.md` says three.js is loaded UMD from cdnjs. Here it
+  is `../assets/three.min.js` (r128, vendored 2026-09-19) because convention 6 forbids CDNs and
+  these tools get used offline. Do not revert that to the CDN when syncing from a newer zip.
+  Google Fonts links stay — convention 6 allows those; they degrade to the local mono/sans stacks
+  offline, which is cosmetic only.
+- Three.js is load-bearing for the 3D pattern (WebGLRenderer, ~21 `THREE.` references, no
+  fallback). Without it that panel is dead, so keep `assets/three.min.js` in step with the
+  version the page expects.
+- When testing in a browser that has loaded an older copy, **cache-bust** — a stale
+  `index.html` will happily show the old 10.23 dBi and look like a failed fix.
 
 ## Git / deploy
 
