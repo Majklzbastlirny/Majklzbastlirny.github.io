@@ -20,7 +20,7 @@ It also exports a characteristic table as CSV and copies the current reading.
 
 ## Layout
 
-It's a **single self-contained file**: `index.html` (renamed from `sensor-calc.html` when the tool moved into the Majklzbastlirny.github.io site repo under `sensorcalc/`). No build step, no bundler, no dependencies except Google Fonts (IBM Plex Mono/Sans). Open it in a browser and it runs. Keep it that way unless there's a strong reason not to — portability is a feature (it gets used on bench laptops with no toolchain).
+It's a **single self-contained file**: `index.html` (renamed from `sensor-calc.html` when the tool moved into the Majklzbastlirny.github.io site repo under `sensorcalc/`). No build step, no bundler, no dependencies: the IBM Plex Mono/Sans webfonts are self-hosted, linked from `../assets/fonts/fonts.css` (Google Fonts until 2026-09-19 — don't put that link back). Open it in a browser and it runs. Keep it that way unless there's a strong reason not to — portability is a feature (it gets used on bench laptops with no toolchain).
 
 Run the regression harness from this folder with `node validate.mjs` (it defaults to `./index.html`).
 

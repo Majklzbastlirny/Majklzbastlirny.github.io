@@ -5,16 +5,18 @@ runs. Three.js r128 is the only code dependency, and everything else — physics
 rendering — is inline vanilla JS.
 
 **Three.js is loaded from `../assets/three.min.js`, NOT from a CDN.** This tool ships inside
-the `Majklzbastlirny.github.io` site, whose conventions forbid CDNs for anything but Google
-Fonts (see that repo's `CLAUDE.md`, convention 6). The reason is practical rather than
+the `Majklzbastlirny.github.io` site, whose conventions forbid CDNs outright (see that repo's
+`CLAUDE.md`, convention 6). The reason is practical rather than
 dogmatic: these tools get used on bench laptops with no network and sometimes straight from
 `file://`, and three.js is load-bearing — roughly 21 `THREE.` references with no fallback, so
 a CDN miss kills the whole 3D panel. The vendored copy is byte-for-byte the same r128 build
 the page was written against. **If you regenerate this file from a chat or an older bundle,
 the cdnjs `<script>` tag will come back — re-point it to `../assets/three.min.js`.**
 
-The Google Fonts `<link>`s are fine to keep; that exception is explicit in the convention.
-Offline they fall back to the local mono/sans stacks, which is cosmetic only.
+The webfonts are self-hosted the same way: Chakra Petch and JetBrains Mono come from
+`../assets/fonts/fonts.css`. The convention used to exempt Google Fonts; since 2026-09-19 it
+does not. **If a regenerated file brings back the Google Fonts `<link>`s, replace them with that
+one stylesheet link.**
 
 The point of the tool: show how antenna **type and gain** reshape the radiation pattern.
 The deliberate design choice that everything hangs on is that **polar plots are absolute

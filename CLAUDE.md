@@ -28,6 +28,7 @@ sprint-ibom/          Interactive BOM for Sprint Layout — VENDORED from an ext
 vna-viewer/           NanoVNA Touchstone viewer — VENDORED from an external repo, see notes
 antenna-pattern/      antenna pattern analyzer (has HANDOFF.md + node test.mjs gate)
 etcs-dmi/             ETCS DMI symbol catalogue — VENDORED, published subset only, see notes
+thread-id/            thread identifier, caliper readings → designation (has node validate.mjs gate)
 *.html at root        redirect stubs (meta refresh + location.replace) from the old flat layout
 ```
 
@@ -273,16 +274,45 @@ the full reference table.
 - **Polar plots are absolute dBi, deliberately not normalised**, so a higher-gain antenna pushes
   its lobe outward instead of every pattern filling the plot. HANDOFF.md says explicitly: do not
   "fix" this into normalised plots.
-- **Local modification vs upstream:** `HANDOFF.md` says three.js is loaded UMD from cdnjs. Here it
-  is `../assets/three.min.js` (r128, vendored 2026-09-19) because convention 6 forbids CDNs and
-  these tools get used offline. Do not revert that to the CDN when syncing from a newer zip.
-  Google Fonts links stay — convention 6 allows those; they degrade to the local mono/sans stacks
-  offline, which is cosmetic only.
+- **Local modifications vs upstream:** the tool arrived loading three.js UMD from cdnjs and its
+  webfonts (Chakra Petch, JetBrains Mono) from Google Fonts. Here three.js is
+  `../assets/three.min.js` (r128, vendored 2026-09-19) and the fonts come from
+  `../assets/fonts/fonts.css` (self-hosted since `0056af5`) — convention 6 forbids CDNs outright,
+  Google Fonts included, and these tools get used offline. `HANDOFF.md` is corrected on both
+  points. When syncing from a newer zip, check that neither the cdnjs `<script>` nor the Google
+  Fonts `<link>`s come back.
 - Three.js is load-bearing for the 3D pattern (WebGLRenderer, ~21 `THREE.` references, no
   fallback). Without it that panel is dead, so keep `assets/three.min.js` in step with the
   version the page expects.
 - When testing in a browser that has loaded an older copy, **cache-bust** — a stale
   `index.html` will happily show the old 10.23 dBi and look like a failed fix.
+
+### thread-id
+In-repo tool (not vendored): one `index.html` plus a `validate.mjs` gate. The gate runs the page's
+own inline script in a `vm` sandbox against a stub DOM, so there is no extracted copy of the logic
+to drift out of step — the trap `antenna-pattern`'s `core.mjs` sets.
+
+- **`node validate.mjs` from the tool folder is the gate. 0 failed, or the change is wrong.** It
+  checks every database row against reference tables typed independently from the standards
+  (ISO 261, ASME B1.1, BS 84, ISO 228-1, ASME B1.20.1, DIN 40430, ISO 2902, DIN 168-1, GPI/SPI,
+  MIL-STD-348), the depth and bore factors against the profile geometry, and that every row
+  identifies itself from a reading anywhere in its tolerance band, external and internal — or is
+  the twin the page names in its "nearly identical by caliper" warning. Plus named field cases,
+  HTML escaping and the profile canvas bounds.
+- **The matcher scores against where a real part reads, not its basic size**: external metal
+  threads at mid ISO 965-1 6g band (`underOf()`), nut bores at basic minor + half the 6H band
+  (`boreOf()`). Change either and re-run the gate — the first version expected bolts about half
+  as far under nominal as 6g puts them, and a mid-band #10-24 screw came out as 3/16 BSW.
+- **NPT `D` is the pipe OD**, not a thread diameter. External is read at the large end; the bore
+  is read at the fitting face, E1 − h ≈ OD − 1.67P. Thread depth is 0.8P (ASME B1.20.1), not the
+  0.613P of a 60° fastener.
+- **GL is DIN 168-1.** There is no GL38 in it — bottles sold as "GL 38" are GPI 38-400, 6 TPI.
+- **GPI is one row per neck size** (`28-400/410/415`): the suffix is neck height and turns, which a
+  caliper cannot resolve. 8 TPI for 18–24, 6 TPI for 28–38. The 13 and 15 mm pitches are
+  unverified catalogue figures: they get a wider pitch cut-off (`approxP`) but the normal moulded
+  scoring tolerance — scoring them loosely let GPI 13 outrank a 1/2-13 bolt.
+- RF rows compute Ø from the inch size so they tie exactly with their generic UN twin; the sort
+  then puts the connector name first. SMC is #10-32 UNF.
 
 ## Git / deploy
 

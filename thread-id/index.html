@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Thread Identifier — caliper to designation</title>
+<link rel="stylesheet" href="../assets/fonts/fonts.css">
+<style>
+:root{
+  color-scheme:dark;
+  --bg:#15181c; --panel:#1c2127; --panel2:#22282f; --inset:#11151a;
+  --line:#2e3740; --line2:#3a4650;
+  --ink:#dde3e8; --muted:#8b97a3; --faint:#5b6772;
+  --brass:#d9a441; --brass-dim:#8a6a2c;
+  --steel:#7da7c7; --good:#7fb56e; --warn:#d9784a; --bad:#c75454;
+  --lcd:#b8c7a8; --lcd-bg:#1a2018;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,monospace;
+  --disp:'Chakra Petch','Arial Narrow',sans-serif;
+  --body:'IBM Plex Sans',system-ui,sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{font-size:16px}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);min-height:100vh;
+  background-image:repeating-linear-gradient(0deg,transparent,transparent 31px,rgba(125,167,199,.035) 31px,rgba(125,167,199,.035) 32px),
+                   repeating-linear-gradient(90deg,transparent,transparent 31px,rgba(125,167,199,.035) 31px,rgba(125,167,199,.035) 32px);}
+.wrap{max-width:1180px;margin:0 auto;padding:20px 18px 60px}
+header{display:flex;align-items:baseline;gap:16px;flex-wrap:wrap;border-bottom:2px solid var(--brass);padding-bottom:10px;margin-bottom:22px}
+header h1{font-family:var(--disp);font-weight:700;font-size:1.9rem;letter-spacing:.06em;text-transform:uppercase}
+header h1 em{color:var(--brass);font-style:normal}
+header .sub{color:var(--muted);font-family:var(--mono);font-size:.78rem}
+main{display:grid;grid-template-columns:290px 350px minmax(0,1fr);gap:20px;align-items:start}
+@media(max-width:1040px){main{grid-template-columns:340px minmax(0,1fr)}.guide-col{grid-column:1 / -1;order:-1}}
+@media(max-width:720px){main{grid-template-columns:minmax(0,1fr)}}   /* minmax: a bare 1fr grows to the inputs' min-content and scrolls sideways on phones */
+
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:6px;padding:18px}
+.panel h2{font-family:var(--disp);font-weight:600;font-size:1.05rem;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.panel h2::after{content:"";flex:1;height:1px;background:var(--line2)}
+
+.field{margin-bottom:16px}
+.field label{display:block;font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.field label .opt{color:var(--faint);text-transform:none;letter-spacing:0}
+.lcd-row{display:flex;gap:8px}
+input[type=text]{flex:1;min-width:0;background:var(--lcd-bg);color:var(--lcd);border:1px solid var(--line);border-radius:4px;
+  font-family:var(--mono);font-size:1.45rem;font-weight:500;padding:7px 12px;letter-spacing:.04em;
+  box-shadow:inset 0 2px 6px rgba(0,0,0,.5)}
+input[type=text]:focus{outline:2px solid var(--brass);outline-offset:-1px}
+input[type=text]::placeholder{color:#3d4a3a;font-size:1.1rem}
+.unit-tag{display:flex;align-items:center;font-family:var(--mono);color:var(--faint);font-size:.85rem;min-width:34px}
+
+.seg{display:flex;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.seg button{flex:1;background:var(--panel2);color:var(--muted);border:none;padding:8px 6px;font-family:var(--mono);font-size:.78rem;cursor:pointer;border-right:1px solid var(--line)}
+.seg button:last-child{border-right:none}
+.seg button.on{background:var(--brass);color:#16130a;font-weight:600}
+.seg button:focus-visible{outline:2px solid var(--steel);outline-offset:-2px}
+
+.hint{font-size:.76rem;color:var(--faint);margin-top:5px;line-height:1.4}
+.span-helper{background:var(--inset);border:1px dashed var(--line2);border-radius:4px;padding:10px;margin-top:8px}
+.span-helper .row{display:flex;gap:8px;align-items:center}
+.span-helper input{font-size:1rem;padding:5px 8px}
+.span-helper .lbl{font-family:var(--mono);font-size:.7rem;color:var(--muted);white-space:nowrap}
+.span-out{font-family:var(--mono);font-size:.78rem;color:var(--steel);margin-top:6px}
+
+button.go{width:100%;background:var(--brass);color:#16130a;border:none;border-radius:4px;padding:12px;
+  font-family:var(--disp);font-weight:700;font-size:1.15rem;letter-spacing:.12em;text-transform:uppercase;cursor:pointer;margin-top:4px}
+button.go:hover{background:#e8b658}
+button.go:focus-visible{outline:2px solid var(--steel);outline-offset:2px}
+
+.results-empty{color:var(--faint);font-family:var(--mono);font-size:.85rem;padding:30px 10px;text-align:center;line-height:1.7}
+
+.card{border:1px solid var(--line);border-left:4px solid var(--faint);border-radius:4px;background:var(--panel2);padding:12px 14px;margin-bottom:10px}
+.card.top{border-left-color:var(--brass);background:linear-gradient(180deg,#262d35,var(--panel2))}
+.card .head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.card .name{font-family:var(--disp);font-weight:700;font-size:1.5rem;letter-spacing:.03em}
+.card.top .name{color:var(--brass);font-size:1.8rem}
+.badge{font-family:var(--mono);font-size:.65rem;letter-spacing:.06em;padding:2px 7px;border-radius:3px;border:1px solid var(--line2);color:var(--muted);text-transform:uppercase}
+.conf{margin-left:auto;font-family:var(--mono);font-size:.95rem;font-weight:600}
+.confbar{height:4px;background:var(--inset);border-radius:2px;margin:7px 0 9px;overflow:hidden}
+.confbar i{display:block;height:100%;background:var(--steel)}
+.card.top .confbar i{background:var(--brass)}
+.specs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:4px 14px;font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+.specs b{color:var(--ink);font-weight:500}
+.specs .ok{color:var(--good)} .specs .off{color:var(--warn)}
+.card .note{font-size:.78rem;color:var(--steel);margin-top:7px;border-top:1px dashed var(--line);padding-top:6px;line-height:1.45}
+.advisory{border:1px solid var(--brass-dim);background:rgba(217,164,65,.07);border-radius:4px;padding:10px 12px;font-size:.82rem;color:var(--brass);margin-bottom:14px;line-height:1.5;font-family:var(--mono)}
+
+.profilebox{background:var(--inset);border:1px solid var(--line);border-radius:4px;margin-bottom:16px;padding:8px}
+.profilebox svg{display:block;width:100%;height:auto}
+.profilebox .cap{font-family:var(--mono);font-size:.7rem;color:var(--faint);padding:4px 6px 2px}
+
+details.db{margin-top:26px}
+details.db summary{cursor:pointer;font-family:var(--disp);letter-spacing:.1em;text-transform:uppercase;color:var(--steel);font-size:1rem;padding:8px 0}
+details.db .filter{margin:8px 0}
+details.db input{font-size:.95rem;padding:6px 10px;width:100%;max-width:340px}
+table{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:.76rem}
+th,td{text-align:left;padding:4px 10px;border-bottom:1px solid var(--line)}
+th{color:var(--steel);font-weight:600;text-transform:uppercase;font-size:.68rem;letter-spacing:.06em;position:sticky;top:0;background:var(--panel)}
+td{color:var(--muted)} td:first-child{color:var(--ink)}
+.tablewrap{max-height:420px;overflow:auto;border:1px solid var(--line);border-radius:4px;background:var(--panel)}
+@media (prefers-reduced-motion:no-preference){.card{animation:slidein .18s ease both}@keyframes slidein{from{opacity:0;transform:translateY(4px)}to{opacity:1}}}
+
+.guide svg{display:block;width:100%;height:auto;background:var(--inset);border:1px solid var(--line);border-radius:4px}
+.guide .steps{list-style:none;margin-top:14px;display:flex;flex-direction:column;gap:10px}
+.guide .steps li{display:flex;gap:10px;font-size:.84rem;line-height:1.4}
+.guide .steps .n{flex:none;width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-family:var(--mono);font-size:.72rem;font-weight:600;background:var(--inset);border:1px solid var(--line2)}
+.guide .steps .s1 .n{border-color:var(--brass);color:var(--brass)}
+.guide .steps .s2 .n{border-color:var(--steel);color:var(--steel)}
+.guide .steps .s3 .n{border-color:var(--good);color:var(--good)}
+.guide .steps b{color:var(--ink);font-weight:600}
+.guide .steps span{color:var(--muted)}
+.guide .modeswitch{font-family:var(--mono);font-size:.72rem;color:var(--faint);margin-top:10px;text-align:center}
+</style>
+</head>
+<body>
+<div class="wrap">
+<a href="../index.html" style="font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none;display:inline-block;margin-bottom:10px;" title="Back to Tools">&larr; Tools</a><a href="../index.html#disclaimer" style="margin-left:7px;font-family:var(--mono);font-size:12px;color:var(--muted);text-decoration:none;display:inline-block;" title="Accuracy and warranty disclaimer">· No warranty</a>
+<header>
+  <h1>Thread <em>Identifier</em></h1>
+  <span class="sub">caliper readings → thread designation · metric / UNC·UNF·UNEF / BSW·BSF / G·R / NPT / PG / Tr / GL / GPI / RF coax</span>
+</header>
+
+<main>
+  <section class="panel guide guide-col" aria-label="How to measure">
+    <h2>How to measure</h2>
+    <div id="guideSvg"></div>
+    <ol class="steps">
+      <li class="s1"><span class="n">1</span><span><b>Ø over threads.</b> Close the outside jaws across the thread <b>crests</b> (the peaks). Rotate the part and take the largest steady reading.</span></li>
+      <li class="s2"><span class="n">2</span><span><b>Pitch.</b> Don't trust one tooth. Line the jaw on a crest, count <b>N</b> crests, read the length, enter both in the span box — pitch = L/(N−1). Vital for fine threads (SMA = 36 TPI).</span></li>
+      <li class="s3"><span class="n">3</span><span><b>Depth.</b> Optional. Depth-gauge crest→root, or (Ø&nbsp;crest − Ø&nbsp;root)/2. Helps separate 60° / 55° / round forms.</span></li>
+    </ol>
+    <div class="modeswitch" id="guideMode"></div>
+  </section>
+
+  <section class="panel" aria-label="Measurements">
+    <h2>Measure</h2>
+
+    <div class="field">
+      <label>Thread location</label>
+      <div class="seg" id="segLoc">
+        <button data-v="ext" class="on">External (bolt / spigot)</button>
+        <button data-v="int">Internal (nut / bore)</button>
+      </div>
+      <div class="hint" id="locHint">Measure Ø over the thread crests with caliper jaws.</div>
+    </div>
+
+    <div class="field">
+      <label id="diaLabel">Ø over threads</label>
+      <div class="lcd-row">
+        <input type="text" id="dia" inputmode="decimal" placeholder="24,87" autocomplete="off">
+        <div class="seg" style="width:110px" id="segDiaUnit">
+          <button data-v="mm" class="on">mm</button>
+          <button data-v="in">inch</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Thread pitch <span class="opt">(optional but recommended)</span></label>
+      <div class="lcd-row">
+        <input type="text" id="pitch" inputmode="decimal" placeholder="1,5" autocomplete="off">
+        <div class="seg" style="width:110px" id="segPitchUnit">
+          <button data-v="mm" class="on">mm</button>
+          <button data-v="tpi">TPI</button>
+        </div>
+      </div>
+      <div class="span-helper">
+        <div class="row">
+          <span class="lbl">or span:</span>
+          <input type="text" id="spanLen" inputmode="decimal" placeholder="length" autocomplete="off" aria-label="Span length in mm">
+          <span class="lbl">mm over</span>
+          <input type="text" id="spanN" inputmode="numeric" placeholder="N" autocomplete="off" style="max-width:64px" aria-label="Number of crests">
+          <span class="lbl">crests</span>
+        </div>
+        <div class="span-out" id="spanOut">More accurate than single-pitch: measure crest №1 → crest №N, pitch = L / (N−1).</div>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Thread depth <span class="opt">(optional — depth gauge / (Ø crest − Ø root)/2)</span></label>
+      <div class="lcd-row">
+        <input type="text" id="depth" inputmode="decimal" placeholder="0,92" autocomplete="off">
+        <div class="unit-tag">mm</div>
+      </div>
+      <div class="hint">Used to sanity-check thread form (60° V vs 55° vs trapezoidal vs round bottle thread).</div>
+    </div>
+
+    <button class="go" id="go">Identify</button>
+    <div class="hint" style="margin-top:10px">Decimal comma or point both accepted. External threads normally measure 0,05–0,4&nbsp;mm <i>under</i> nominal (more on coarse pitches) — the matcher accounts for this.</div>
+  </section>
+
+  <section class="panel" aria-label="Results">
+    <h2>Candidates</h2>
+    <div id="profile" class="profilebox" hidden>
+      <div class="cap" id="profileCap"></div>
+      <div id="profileSvg"></div>
+    </div>
+    <div id="advisory"></div>
+    <div id="out" class="results-empty">Enter at least the diameter over threads, then hit <b>Identify</b>.<br>Pitch narrows it down a lot — close twins exist (e.g. M8 vs 5/16-18 UNC, M5 vs #10-32 UNF, G1/2 vs 1/2 NPT).</div>
+  </section>
+</main>
+
+<details class="db">
+  <summary>Full thread database (reference table)</summary>
+  <div class="filter"><input type="text" id="dbFilter" placeholder="filter… e.g. G1/4, M8, UNC, GL" autocomplete="off"></div>
+  <div class="tablewrap">
+    <table id="dbTable">
+      <thead><tr><th>Designation</th><th>Family</th><th>Major Ø mm</th><th>Pitch mm</th><th>TPI</th><th>Angle</th><th>Notes</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+</details>
+</div>
+
+<script>
+"use strict";
+/* ================= DATABASE ================= */
+/* angle = included thread angle; df = external thread depth factor (h ≈ df·P); ik = internal-bore factor (bore ≈ D − ik·P) */
+const FAM = {
+  MC:{label:"Metric coarse", angle:60, df:0.613, ik:1.083},
+  MF:{label:"Metric fine",   angle:60, df:0.613, ik:1.083},
+  UNC:{label:"UNC", angle:60, df:0.613, ik:1.083},
+  UNF:{label:"UNF", angle:60, df:0.613, ik:1.083},
+  UNEF:{label:"UNEF", angle:60, df:0.613, ik:1.083},
+  BSW:{label:"BSW (Whitworth)", angle:55, df:0.640, ik:1.281},
+  BSF:{label:"BSF", angle:55, df:0.640, ik:1.281},
+  G:{label:"G / BSPP pipe", angle:55, df:0.640, ik:1.281},
+  NPT:{label:"NPT (tapered)", angle:60, df:0.800, ik:1.67},     // ASME B1.20.1: h = 0.8P; D is pipe OD, the bore at the fitting face (E1 − h) is ≈ D − 1.67P
+  PG:{label:"PG conduit", angle:80, df:0.47, ik:0.94},
+  TR:{label:"Tr trapezoidal", angle:30, df:null, ik:1.00},      // ISO 2904: D1 = d − P; depth h3 = P/2 + ac, see depthOf()
+  GL:{label:"GL glass (DIN 168)", angle:0, df:0.337, ik:0.64},  // DIN 168-1: (major − minor)/2 ≈ 0.337P; cap bore (nut minor, min) ≈ D − 0.64P
+  RF:{label:"RF coax connector", angle:60, df:0.613, ik:1.083},
+  GPI:{label:"GPI / SP bottle finish", angle:0, df:0.30, ik:null},
+};
+/* external thread depth crest→root; Tr per ISO 2904 is h3 = P/2 + ac, the clearance ac stepping up with pitch */
+const depthOf=e=>e.fam==="TR"?e.P/2+(e.P<=1.5?0.15:e.P<=5?0.25:e.P<=12?0.5:1):FAM[e.fam].df*e.P;
+const mm=v=>v, inch=v=>v*25.4, tpi=t=>25.4/t;
+const DB=[];
+function add(fam,name,D,P,note){DB.push({fam,name,D,P,note:note||""});}
+
+/* --- Metric coarse (ISO 261) --- */
+[[1,.25],[1.2,.25],[1.4,.3],[1.6,.35],[1.8,.35],[2,.4],[2.2,.45],[2.5,.45],[3,.5],[3.5,.6],[4,.7],[4.5,.75],[5,.8],[6,1],[7,1],[8,1.25],[9,1.25],[10,1.5],[11,1.5],[12,1.75],[14,2],[16,2],[18,2.5],[20,2.5],[22,2.5],[24,3],[27,3],[30,3.5],[33,3.5],[36,4],[39,4],[42,4.5],[45,4.5],[48,5],[52,5],[56,5.5],[60,5.5],[64,6]]
+.forEach(([d,p])=>add("MC",`M${d}`,d,p));
+
+/* --- Metric fine (ISO 262 + common) --- */
+const GLAND=[12,16,20,25,32,40,50,63];
+[[3,.35],[4,.5],[5,.5],[6,.75],[7,.75],[8,1],[8,.75],[9,1],[10,1.25],[10,1],[10,.75],[11,1],[12,1.5],[12,1.25],[12,1],[14,1.5],[14,1.25],[15,1.5],[16,1.5],[16,1],[17,1.5],[18,2],[18,1.5],[18,1],[20,2],[20,1.5],[20,1],[22,2],[22,1.5],[24,2],[24,1.5],[25,2],[25,1.5],[26,1.5],[27,2],[27,1.5],[28,2],[28,1.5],[30,2],[30,1.5],[32,2],[32,1.5],[33,2],[35,1.5],[36,3],[36,2],[36,1.5],[39,3],[39,2],[40,2],[40,1.5],[42,3],[42,2],[45,3],[45,2],[48,3],[48,2],[50,2],[50,1.5],[52,2],[56,4],[56,2],[60,4],[60,2],[63,1.5],[64,4]]
+.forEach(([d,p])=>add("MF",`M${d}×${p}`,d,p,(p===1.5&&GLAND.includes(d))?"common cable-gland size":""));
+
+/* --- UNC --- */
+[["#1",.073,64],["#2",.086,56],["#3",.099,48],["#4",.112,40],["#5",.125,40],["#6",.138,32],["#8",.164,32],["#10",.190,24],["#12",.216,24],["1/4",.25,20],["5/16",.3125,18],["3/8",.375,16],["7/16",.4375,14],["1/2",.5,13],["9/16",.5625,12],["5/8",.625,11],["3/4",.75,10],["7/8",.875,9],["1\"",1,8],["1-1/8",1.125,7],["1-1/4",1.25,7],["1-1/2",1.5,6]]
+.forEach(([n,d,t])=>add("UNC",`${n}-${t} UNC`,inch(d),tpi(t),n==="1/4"?"also camera tripod thread":""));
+
+/* --- UNF --- */
+[["#0",.060,80],["#1",.073,72],["#2",.086,64],["#3",.099,56],["#4",.112,48],["#5",.125,44],["#6",.138,40],["#8",.164,36],["#10",.190,32],["#12",.216,28],["1/4",.25,28],["5/16",.3125,24],["3/8",.375,24],["7/16",.4375,20],["1/2",.5,20],["9/16",.5625,18],["5/8",.625,18],["3/4",.75,16],["7/8",.875,14],["1\"",1,12],["1-1/8",1.125,12],["1-1/4",1.25,12]]
+.forEach(([n,d,t])=>add("UNF",`${n}-${t} UNF`,inch(d),tpi(t)));
+
+/* --- UNEF (common only) --- */
+[["1/4",.25,32],["5/16",.3125,32],["3/8",.375,32],["7/16",.4375,28],["1/2",.5,28],["9/16",.5625,24],["5/8",.625,24],["3/4",.75,20],["7/8",.875,20],["1\"",1,20]]
+.forEach(([n,d,t])=>add("UNEF",`${n}-${t} UNEF`,inch(d),tpi(t)));
+
+/* --- BSW --- */
+[["1/8",.125,40],["5/32",.15625,32],["3/16",.1875,24],["7/32",.21875,24],["1/4",.25,20],["5/16",.3125,18],["3/8",.375,16],["7/16",.4375,14],["1/2",.5,12],["9/16",.5625,12],["5/8",.625,11],["3/4",.75,10],["7/8",.875,9],["1\"",1,8]]
+.forEach(([n,d,t])=>add("BSW",`${n} BSW`,inch(d),tpi(t)));
+
+/* --- BSF --- */
+[["3/16",.1875,32],["7/32",.21875,28],["1/4",.25,26],["9/32",.28125,26],["5/16",.3125,22],["3/8",.375,20],["7/16",.4375,18],["1/2",.5,16],["9/16",.5625,16],["5/8",.625,14],["3/4",.75,12],["7/8",.875,11],["1\"",1,10]]
+.forEach(([n,d,t])=>add("BSF",`${n} BSF`,inch(d),tpi(t)));
+
+/* --- G / BSPP (ISO 228) — diameters are exact, NOT the fraction --- */
+[["G1/16",7.723,28],["G1/8",9.728,28],["G1/4",13.157,19],["G3/8",16.662,19],["G1/2",20.955,14],["G5/8",22.911,14],["G3/4",26.441,14],["G7/8",30.201,14],["G1",33.249,11],["G1-1/8",37.897,11],["G1-1/4",41.910,11],["G1-1/2",47.803,11],["G2",59.614,11]]
+.forEach(([n,d,t])=>add("G",n,d,tpi(t),"parallel; R/BSPT tapered version has same pitch, and this Ø at its gauge plane (≈ mid-thread)"));
+
+/* --- NPT --- */
+[["1/16",7.938,27],["1/8",10.287,27],["1/4",13.716,18],["3/8",17.145,18],["1/2",21.336,14],["3/4",26.670,14],["1\"",33.401,11.5],["1-1/4",42.164,11.5],["1-1/2",48.260,11.5],["2\"",60.325,11.5]]
+.forEach(([n,d,t])=>add("NPT",`${n} NPT`,d,tpi(t),"taper 1:16 — Ø varies along length, measure at large end (internal: the bore at the fitting face); Ø listed is the pipe OD"));
+
+/* --- RF coax connector coupling threads (Ø from the inch size, so each ties exactly with its generic UN twin) --- */
+[["1/4-36 (SMA / RP-SMA)",inch(.25),36,"SMA, RP-SMA, 3.5 mm & 2.92 mm(K) share this thread; gender = centre pin, not thread. Fine 36 TPI → measure pitch by span over ~10 crests"],
+ ["7/16-28 (TNC / RP-TNC)",inch(.4375),28,"threaded version of BNC"],
+ ["5/8-24 (N-type / UHF)",inch(.625),24,"N-type and UHF/PL-259 share 5/8-24 UNEF but are NOT intermateable — different interface geometry"],
+ ["3/8-32 (F-type)",inch(.375),32,"TV / SAT coax"],
+ ["3/8-24 (Mini-UHF)",inch(.375),24,"mini-UHF"],
+ ["#10-32 (SMC)",inch(.190),32,"micro-miniature SMC — #10-32 UNF coupling thread"],
+ ["M29×1.5 (7/16 DIN)",29.0,null,"7/16 DIN — '7/16' is the 7 mm/16 mm conductor Ø, NOT the thread; coupling thread is M29×1.5"]]
+.forEach(([n,d,t,note])=>add("RF",n,d,t?25.4/t:1.5,note));
+
+/* --- PG conduit (DIN 40430, 80°) --- */
+[["PG7",12.5,20],["PG9",15.2,18],["PG11",18.6,18],["PG13.5",20.4,18],["PG16",22.5,18],["PG21",28.3,16],["PG29",37.0,16],["PG36",47.0,16],["PG42",54.0,16],["PG48",59.3,16]]
+.forEach(([n,d,t])=>add("PG",n,d,tpi(t),"legacy cable glands / conduit"));
+
+/* --- Trapezoidal Tr (30°) --- */
+[[8,1.5],[8,2],[10,2],[10,3],[12,2],[12,3],[14,3],[16,4],[18,4],[20,4],[24,5],[26,5],[28,5],[30,6],[32,6],[36,6],[40,7]]
+.forEach(([d,p])=>add("TR",`Tr${d}×${p}`,d,p,(d===8&&p===2)?"3D-printer lead screws are often 4-start: pitch 2, lead 8":""));
+
+/* --- GL glass threads (DIN 168-1 round profile) — Ø and pitch per the standard; there is no GL38 in it --- */
+[[14,2.5],[18,3],[22,3],[25,3],[28,3],[32,4],[45,4]]
+.forEach(([d,p])=>add("GL",`GL${d}`,d,p,"lab bottle/vial round thread; shallow rounded profile"));
+
+/* --- GPI / SP cosmetic & vial neck finishes ---
+   "T dimension" (Ø over threads) ≈ the two-digit number in mm; moulded necks often read a few tenths under.
+   The 3-digit suffix (400/410/415/425) is neck height + turns — NOT distinguishable by caliper,
+   so each size is one row covering its suffixes.
+   Pitch per the GPI/SPI tables: 8 TPI for 18–24, 6 TPI for 28–38. 13 and 15 are approximate catalogue figures. */
+const GPIstyle={ "400":"R3 / 1 turn, standard", "410":"continuous, 1½ turns",
+  "415":"continuous, 2 turns, taller neck", "425":"2 turns, small-vial finish" };
+[[13,2.1,["410","415","425"]],[15,2.3,["410","415","425"]],[18,tpi(8),["400","410","415"]],
+ [20,tpi(8),["400","410","415"]],[22,tpi(8),["400","410","415"]],[24,tpi(8),["400","410","415"]],
+ [28,tpi(6),["400","410","415"]],[33,tpi(6),["400"]],[38,tpi(6),["400","430"]]]
+.forEach(([d,p,styles])=>add("GPI",`${d}-${styles.join("/")}`,d,p,
+  `cosmetic/bottle finish — ${styles.map(s=>`${d}-${s}: ${GPIstyle[s]||"finish "+s}`).join(" · ")}. Same pitch, Ø within a few tenths: suffix not caliper-resolvable`
+  +(d<18?"; pitch ≈":"")+(d===38?"; also sold as \"GL 38\"":"")));
+
+/* ================= PARSING & STATE ================= */
+const $=id=>document.getElementById(id);
+const num=el=>{const s=el.value.trim().replace(",",".");if(!s)return null;const v=parseFloat(s);return isFinite(v)&&v>0?v:null;};   // zero / negative = not entered
+const state={loc:"ext",diaUnit:"mm",pitchUnit:"mm"};
+
+function wireSeg(id,key,cb){
+  $(id).addEventListener("click",e=>{
+    const b=e.target.closest("button");if(!b)return;
+    [...$(id).children].forEach(x=>x.classList.toggle("on",x===b));
+    state[key]=b.dataset.v; if(cb)cb();
+  });
+}
+wireSeg("segLoc","loc",()=>{
+  $("diaLabel").textContent = state.loc==="ext"?"Ø over threads":"Ø of threaded bore (over crests)";
+  $("locHint").textContent = state.loc==="ext"
+    ?"Measure Ø over the thread crests with caliper jaws."
+    :"Measure the smallest bore Ø (crest-to-crest inside). Matched against minor Ø ≈ nominal − k·pitch.";
+  drawGuide();
+});
+wireSeg("segDiaUnit","diaUnit");
+wireSeg("segPitchUnit","pitchUnit");
+
+const SPAN_HINT=$("spanOut").textContent;
+function spanPitch(){
+  const L=num($("spanLen")),N=num($("spanN")),out=$("spanOut");
+  if(L&&N&&N>=2&&Number.isInteger(N)){
+    const p=L/(N-1);
+    out.textContent=`→ pitch = ${fmt(p,3)} mm (${fmt(25.4/p,1)} TPI)`+(num($("pitch"))!=null?" — not used: the pitch field above takes priority":"");
+    return p;
+  }
+  out.textContent=(L||N)?"Need a length and a whole number of crests N ≥ 2.":SPAN_HINT;
+  return null;
+}
+$("spanLen").addEventListener("input",spanPitch);
+$("spanN").addEventListener("input",spanPitch);
+$("pitch").addEventListener("input",spanPitch);
+
+/* ================= MEASUREMENT GUIDE ================= */
+function arrowDimV(x,y1,y2,col){ // vertical double-headed dimension
+  return `<line x1="${x}" y1="${y1}" x2="${x}" y2="${y2}" stroke="${col}" stroke-width="1.5"/>
+    <path d="M ${x-4} ${y1+6} L ${x} ${y1} L ${x+4} ${y1+6}" fill="${col}"/>
+    <path d="M ${x-4} ${y2-6} L ${x} ${y2} L ${x+4} ${y2-6}" fill="${col}"/>`;
+}
+function arrowDimH(y,x1,x2,col){
+  return `<line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="${col}" stroke-width="1.5"/>
+    <path d="M ${x1+6} ${y-4} L ${x1} ${y} L ${x1+6} ${y+4}" fill="${col}"/>
+    <path d="M ${x2-6} ${y-4} L ${x2} ${y} L ${x2-6} ${y+4}" fill="${col}"/>`;
+}
+function drawGuide(){
+  const ext = state.loc==="ext";
+  const C={brass:"#d9a441",steel:"#7da7c7",good:"#7fb56e",line:"#3a4650",ink:"#cdd5dc",faint:"#5b6772",rod:"rgba(125,167,199,.12)",jaw:"#46525c"};
+  const x0=70,x1=232,n=9,h=9,W=280,Hh=235;
+  const step=(x1-x0)/n;
+  const crestX=i=>x0+i*step;                 // crest (peak) x positions
+  let svg=`<svg viewBox="0 0 ${W} ${Hh}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Caliper measurement guide">`;
+
+  if(ext){
+    const vTop=106,vBot=134;                  // valley lines
+    const cTop=vTop-h,cBot=vBot+h;            // outer crest lines (the OD)
+    // fill core + stroke teeth
+    svg+=`<rect x="${x0}" y="${vTop}" width="${x1-x0}" height="${vBot-vTop}" fill="${C.rod}"/>`;
+    let tz=`M ${x0} ${vTop}`,bz=`M ${x0} ${vBot}`;
+    for(let i=0;i<n;i++){const xa=x0+i*step,xm=xa+step/2,xb=xa+step;
+      tz+=` L ${xm.toFixed(1)} ${cTop} L ${xb.toFixed(1)} ${vTop}`;
+      bz+=` L ${xm.toFixed(1)} ${cBot} L ${xb.toFixed(1)} ${vBot}`;}
+    svg+=`<path d="${tz}" fill="${C.rod}" stroke="${C.ink}" stroke-width="1.4"/>`;
+    svg+=`<path d="${bz}" fill="${C.rod}" stroke="${C.ink}" stroke-width="1.4"/>`;
+    // caliper outside-jaw bracket (faint)
+    svg+=`<path d="M ${x1+22} ${cTop-6} L ${x1+22} ${cBot+6}" stroke="${C.jaw}" stroke-width="3"/>
+          <path d="M ${x1+22} ${cTop} L ${x1+4} ${cTop} L ${x1+4} ${cTop+7}" stroke="${C.jaw}" stroke-width="3" fill="none"/>
+          <path d="M ${x1+22} ${cBot} L ${x1+4} ${cBot} L ${x1+4} ${cBot-7}" stroke="${C.jaw}" stroke-width="3" fill="none"/>
+          <text x="${x1+18}" y="${(cTop+cBot)/2+3}" fill="${C.faint}" font-family="IBM Plex Mono,monospace" font-size="8" transform="rotate(90 ${x1+18} ${(cTop+cBot)/2})">caliper jaws</text>`;
+    // ① OD vertical dim
+    svg+=arrowDimV(46,cTop,cBot,C.brass);
+    svg+=`<line x1="46" y1="${cTop}" x2="${x0}" y2="${cTop}" stroke="${C.brass}" stroke-width=".6" stroke-dasharray="2 2"/>
+          <line x1="46" y1="${cBot}" x2="${x0}" y2="${cBot}" stroke="${C.brass}" stroke-width=".6" stroke-dasharray="2 2"/>
+          <text x="26" y="${(cTop+cBot)/2}" fill="${C.brass}" font-family="IBM Plex Mono,monospace" font-size="9" text-anchor="middle" transform="rotate(-90 26 ${(cTop+cBot)/2})">① Ø over threads</text>`;
+    // ② span across crests (peaks of TOP edge are at crestX + step/2)
+    const s1=x0+step/2+step*1, s2=x0+step/2+step*5, yS=70;
+    for(const xx of [s1,s1+step,s1+step*2,s1+step*3,s2]) svg+=`<line x1="${xx.toFixed(1)}" y1="${cTop}" x2="${xx.toFixed(1)}" y2="${yS}" stroke="${C.steel}" stroke-width=".6" stroke-dasharray="2 2"/>`;
+    svg+=arrowDimH(yS,s1,s2,C.steel);
+    svg+=`<text x="${(s1+s2)/2}" y="${yS-6}" fill="${C.steel}" font-family="IBM Plex Mono,monospace" font-size="9" text-anchor="middle">② span ÷ (N−1) = pitch</text>`;
+    // ③ depth on one tooth
+    const dx=x0+step*3+step/2;
+    svg+=`<line x1="${dx}" y1="${cTop}" x2="${dx}" y2="${vTop}" stroke="${C.good}" stroke-width="1.5"/>
+          <path d="M ${dx-3} ${cTop+5} L ${dx} ${cTop} L ${dx+3} ${cTop+5}" fill="${C.good}"/>
+          <path d="M ${dx-3} ${vTop-5} L ${dx} ${vTop} L ${dx+3} ${vTop-5}" fill="${C.good}"/>
+          <text x="${dx+6}" y="${(cTop+vTop)/2+3}" fill="${C.good}" font-family="IBM Plex Mono,monospace" font-size="9">③ depth</text>`;
+    svg+=`<text x="${W/2}" y="${Hh-8}" fill="${C.faint}" font-family="IBM Plex Mono,monospace" font-size="8.5" text-anchor="middle">External thread — clamp across the crests</text>`;
+    $("guideMode").textContent="showing: EXTERNAL — toggle above for internal bores";
+  } else {
+    // internal bore: block with inward teeth, inside jaws spreading
+    const bx0=58,bx1=222,by0=58,by1=178, wall=18;
+    svg+=`<rect x="${bx0}" y="${by0}" width="${bx1-bx0}" height="${by1-by0}" rx="3" fill="${C.rod}" stroke="${C.ink}" stroke-width="1.4"/>`;
+    // bore opening
+    const oy0=by0+wall, oy1=by1-wall;
+    svg+=`<rect x="${bx0+10}" y="${oy0}" width="${bx1-bx0-20}" height="${oy1-oy0}" fill="#11151a" stroke="${C.line}" stroke-width="1"/>`;
+    // inward teeth on top & bottom inner walls
+    const ix0=bx0+18,ix1=bx1-18,m=8,st=(ix1-ix0)/m;
+    let ut=`M ${ix0} ${oy0}`,lt=`M ${ix0} ${oy1}`;
+    for(let i=0;i<m;i++){const xa=ix0+i*st,xm=xa+st/2,xb=xa+st;
+      ut+=` L ${xm.toFixed(1)} ${oy0+h} L ${xb.toFixed(1)} ${oy0}`;
+      lt+=` L ${xm.toFixed(1)} ${oy1-h} L ${xb.toFixed(1)} ${oy1}`;}
+    svg+=`<path d="${ut}" fill="none" stroke="${C.ink}" stroke-width="1.3"/>`;
+    svg+=`<path d="${lt}" fill="none" stroke="${C.ink}" stroke-width="1.3"/>`;
+    // inner crest lines (the bore Ø you read)
+    const crT=oy0+h, crB=oy1-h;
+    // inside-jaw arms pushing outward
+    const jx=(ix0+ix1)/2;
+    svg+=`<path d="M ${jx} ${(crT+crB)/2-10} L ${jx} ${(crT+crB)/2+10}" stroke="${C.jaw}" stroke-width="3"/>
+          <path d="M ${jx} ${crT+2} L ${jx-14} ${crT+2}" stroke="${C.jaw}" stroke-width="3"/>
+          <path d="M ${jx} ${crB-2} L ${jx+14} ${crB-2}" stroke="${C.jaw}" stroke-width="3"/>
+          <text x="${jx+4}" y="${(crT+crB)/2+3}" fill="${C.faint}" font-family="IBM Plex Mono,monospace" font-size="8">inside jaws</text>`;
+    // ① bore Ø dim
+    svg+=arrowDimV(40,crT,crB,C.brass);
+    svg+=`<line x1="40" y1="${crT}" x2="${ix0}" y2="${crT}" stroke="${C.brass}" stroke-width=".6" stroke-dasharray="2 2"/>
+          <line x1="40" y1="${crB}" x2="${ix0}" y2="${crB}" stroke="${C.brass}" stroke-width=".6" stroke-dasharray="2 2"/>
+          <text x="22" y="${(crT+crB)/2}" fill="${C.brass}" font-family="IBM Plex Mono,monospace" font-size="9" text-anchor="middle" transform="rotate(-90 22 ${(crT+crB)/2})">① bore Ø (over crests)</text>`;
+    // ② span along bore
+    const s1=ix0+st*1+st/2, s2=ix0+st*5+st/2, yS=oy0-14;
+    svg+=arrowDimH(yS,s1,s2,C.steel);
+    for(const xx of [s1,s2])svg+=`<line x1="${xx.toFixed(1)}" y1="${crT}" x2="${xx.toFixed(1)}" y2="${yS}" stroke="${C.steel}" stroke-width=".6" stroke-dasharray="2 2"/>`;
+    svg+=`<text x="${(s1+s2)/2}" y="${yS-5}" fill="${C.steel}" font-family="IBM Plex Mono,monospace" font-size="9" text-anchor="middle">② span ÷ (N−1) = pitch</text>`;
+    svg+=`<text x="${W/2}" y="${Hh-22}" fill="${C.good}" font-family="IBM Plex Mono,monospace" font-size="8.5" text-anchor="middle">you read the MINOR Ø — the tool</text>
+          <text x="${W/2}" y="${Hh-10}" fill="${C.good}" font-family="IBM Plex Mono,monospace" font-size="8.5" text-anchor="middle">adds the pitch back to find nominal</text>`;
+    $("guideMode").textContent="showing: INTERNAL — toggle above for external";
+  }
+  svg+=`</svg>`;
+  $("guideSvg").innerHTML=svg;
+}
+drawGuide();
+
+/* ================= MATCHER ================= */
+/* Where a caliper reading should land — the middle of the part's tolerance band, not its basic size.
+   External, mm under nominal. Metal: mid ISO 965-1 6g band, es + Td/2 = (15 + 11P) µm + (180·P^⅔ − 3,15/√P)/2 µm;
+   ASME 2A, BS 84 and ISO 228 class A land within a few hundredths of it. Tr: es = 0, half the ISO 2903 grade-4 band.
+   GL: mid DIN 168-1 band (max = nominal, 0,4–0,7 wide). GPI: T ≈ 2 % under the size (18-410 is 17,63 ± 0,25). */
+function underOf(e){
+  const P=e.P;
+  if(e.fam==="GL")return 0.075*P+0.02;
+  if(e.fam==="GPI")return 0.02*e.D;
+  if(e.fam==="TR")return 0.062*P**0.64;
+  return (15+11*P)/1000+(180*P**(2/3)-3.15/Math.sqrt(P))/2000;
+}
+/* Internal: bore over the nut's crests, above the basic minor D − ik·P by half its band — ISO 965-1 6H TD1/2 ≈ 0,1P
+   (BSW, G and PG nuts are no tighter); GL and Tr bands are narrower, ≈ 0,05P. NPT is read at the fitting face. */
+const boreOf=e=>e.D-FAM[e.fam].ik*e.P+(e.fam==="NPT"?0:e.fam==="GL"||e.fam==="TR"?0.05*e.P:0.1*e.P);
+
+/* D, P, H in mm (P, H may be null). Pure — validate.mjs calls it directly. Returns every candidate ≥ 8 %, best first. */
+function matchAll(D,P,H,isExt){
+  const res=[];
+  for(const e of DB){
+    const fam=FAM[e.fam];
+    const molded=(e.fam==="GPI"||e.fam==="GL");   // injection-moulded / glass: loose tolerance, T is the spec'd OD
+    const approxP=e.fam==="GPI"&&e.D<18;          // 13 / 15 mm finishes: catalogue pitch, unverified
+    let zD;
+    if(isExt){
+      const sig=molded?(0.2+0.006*e.D):(0.07+0.005*e.D);
+      zD=(D-(e.D-underOf(e)))/sig;
+      const win=molded?(0.9+0.04*e.D):(0.45+0.02*e.D);
+      if(D>e.D+(molded?0.6:0.25)||D<e.D-win)continue;          // hard window
+    }else{
+      if(fam.ik==null||e.P==null)continue;                  // can't model internal for GPI
+      const bore=boreOf(e);
+      const sig=0.14+0.008*e.D;
+      zD=(D-bore)/sig;
+      if(Math.abs(D-bore)>1.0+0.03*e.D)continue;
+    }
+    let zP=0,pKnown=false;
+    if(P!=null&&e.P!=null){
+      // GL / GPI pitches are standard values, but a moulded neck offers only a crest or two to measure across.
+      // An unverified pitch widens only the cut-off: scoring it loosely let GPI 13 beat a 1/2-13 bolt.
+      const ptol=molded?(0.05*e.P+0.05):(0.035*e.P+0.02);
+      zP=(P-e.P)/ptol;pKnown=true;
+      const pwin=approxP?0.45:molded?0.25:0.18;
+      if(Math.abs(P-e.P)/e.P>pwin)continue;                 // hard pitch window
+    }
+    let zH=0,hKnown=false;
+    if(H!=null&&e.P!=null&&isExt){
+      zH=(H-depthOf(e))/(0.12*e.P+0.06);hKnown=true;
+    }
+    let conf=100*Math.exp(-0.5*(zD*zD+(pKnown?zP*zP:0)+(hKnown?0.4*zH*zH:0)));
+    if(e.P==null)conf=Math.min(conf,55);                    // Ø-only, cap it
+    if(!pKnown&&e.P!=null)conf=Math.min(conf,75);           // no pitch given → can't be sure
+    if(conf>=8)res.push({e,conf,zD,zP,pKnown,hKnown,zH});
+  }
+  const lead=r=>r.e.fam==="RF"?1:0;                          // exact tie with its generic twin → the connector name leads
+  return res.sort((a,b)=>b.conf-a.conf||lead(b)-lead(a));
+}
+function identify(){
+  let D=num($("dia"));
+  if(D==null){render(null,null,"Need at least a diameter (a number above zero).");return;}
+  if(state.diaUnit==="in")D*=25.4;
+
+  let P=num($("pitch"));
+  if(P!=null&&state.pitchUnit==="tpi")P=25.4/P;
+  const ps=spanPitch(); if(P==null&&ps)P=ps;
+  const H=num($("depth"));
+
+  const isExt=state.loc==="ext";
+  render(matchAll(D,P,H,isExt).slice(0,8),{D,P,H,isExt},null);
+}
+$("go").addEventListener("click",identify);
+document.querySelectorAll("main input").forEach(i=>i.addEventListener("keydown",e=>{if(e.key==="Enter")identify();}));   // not the table filter
+
+/* ================= RENDER ================= */
+function fmt(v,d=3){return v==null?"—":v.toFixed(d).replace(".",",");}
+const esc=s=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");   // names carry inch marks: 1"-8 UNC
+const angTxt=f=>f.angle?f.angle+"°":"round";
+function render(list,m,err){
+  const out=$("out"),adv=$("advisory"),prof=$("profile");
+  adv.innerHTML="";prof.hidden=true;
+  if(err){out.className="results-empty";out.innerHTML=err;return;}
+  if(!list||!list.length){
+    out.className="results-empty";
+    out.innerHTML="No standard thread matches these numbers.<br>Check: external vs internal toggle, units, and whether the part could be a multi-start thread (caliper pitch reads the <b>lead</b>, not the pitch) or a proprietary/plastic bottle thread.";
+    return;
+  }
+  out.className="";
+
+  // advisory when metric & imperial twins are both plausible
+  const fams=new Set(list.filter(r=>r.conf>list[0].conf*0.5).map(r=>r.e.fam));
+  const hasMetric=[...fams].some(f=>f==="MC"||f==="MF"), hasImp=[...fams].some(f=>["UNC","UNF","UNEF","BSW","BSF"].includes(f));
+  if(hasMetric&&hasImp)adv.innerHTML='<div class="advisory">⚠ Metric and inch candidates are both plausible — confirm with a pitch gauge or by trial nut/bolt. Caliper pitch alone can\'t separate e.g. 1,25 mm from 20 TPI (1,27 mm).</div>';
+  // Name the most plausible caliper twin of the top row. Candidates: a same-Ø, same-TPI row of another form
+  // (5/16-18 UNC vs 5/16 BSW) whatever its score, since no caliper settles that; and the best row from another thread
+  // system scoring at least half the top — the metric/inch note's bar. Coarse/fine siblings only differ in pitch, which
+  // the no-pitch note covers; rows that are the very same thread under another name (TNC = 7/16-28 UNEF) are skipped.
+  const sys=r=>({MF:"MC",UNF:"UNC",UNEF:"UNC",BSF:"BSW"})[r.e.fam]||r.e.fam;
+  const top=list[0], fa=FAM[top.e.fam];
+  const sizeTwin=r=>Math.abs(r.e.D-top.e.D)<0.005&&Math.abs(r.e.P-top.e.P)<0.001;
+  const same=r=>sizeTwin(r)&&FAM[r.e.fam].angle===fa.angle;
+  const twin=[list.slice(1).find(r=>sizeTwin(r)&&!same(r)),
+              list.slice(1).find(r=>sys(r)!==sys(top)&&!same(r)&&r.conf>top.conf*0.5)]
+             .filter(Boolean).sort((a,b)=>b.conf-a.conf)[0];
+  if(twin){
+    const fb=FAM[twin.e.fam];
+    adv.innerHTML+=fa.angle!==fb.angle
+      ?`<div class="advisory">⚠ ${esc(top.e.name)} and ${esc(twin.e.name)} are nearly identical by caliper. They differ in thread form (${angTxt(fa)} vs ${angTxt(fb)}) — check what the part mates with, or use a thread-form gauge.</div>`
+      :`<div class="advisory">⚠ ${esc(top.e.name)} and ${esc(twin.e.name)} are nearly identical by caliper — same ${angTxt(fa)} form, Ø ${fmt(top.e.D)} vs ${fmt(twin.e.D)} mm, pitch ${fmt(top.e.P)} vs ${fmt(twin.e.P)} mm. Measure pitch over a longer span, or try a known nut/bolt.</div>`;
+  }
+  if(m.P==null)adv.innerHTML+='<div class="advisory">ℹ No pitch entered — confidence capped at 75 %. Same diameter usually exists in several pitches.</div>';
+  if(m.H!=null&&!m.isExt)adv.innerHTML+='<div class="advisory">ℹ Depth is only used for external threads — ignored for a bore.</div>';
+  if(list[0].e.fam==="RF")adv.innerHTML+='<div class="advisory">📡 RF tip: BNC, SMB, SMA-style ≠ all threaded — BNC/SMB/SMC-snap/MCX/MMCX/QMA/QN use bayonet or snap coupling (nothing to measure). SMA &amp; RP-SMA are identical threads; only the centre pin/socket differs.</div>';
+
+  out.innerHTML=list.map((r,i)=>{
+    const f=FAM[r.e.fam];
+    const dn=m.isExt?r.e.D:(r.e.P!=null?boreOf(r.e):r.e.D);
+    const dd=m.D-dn;
+    const pitchTxt=r.e.P==null?"—":`${fmt(r.e.P,3)} mm (${fmt(25.4/r.e.P,1)} TPI)`;
+    const pCheck=r.pKnown?(Math.abs(r.zP)<1.6?` <span class="ok">✓ measured ${fmt(m.P,3)}</span>`:` <span class="off">Δ ${fmt(m.P-r.e.P,3)}</span>`):"";
+    const hTxt=r.e.P!=null?`${fmt(depthOf(r.e),2)} mm`:"—";
+    const hCheck=r.hKnown?(Math.abs(r.zH)<1.6?` <span class="ok">✓</span>`:` <span class="off">you: ${fmt(m.H,2)}</span>`):"";
+    return `<div class="card${i===0?" top":""}">
+      <div class="head"><span class="name">${esc(r.e.name)}</span><span class="badge">${f.label}</span><span class="conf">${r.conf.toFixed(0)} %</span></div>
+      <div class="confbar"><i style="width:${r.conf}%"></i></div>
+      <div class="specs">
+        <span>${m.isExt?"nominal Ø":"expected bore"} <b>${fmt(dn,3)}</b> <span class="${Math.abs(r.zD)<1.6?"ok":"off"}">(Δ ${dd>=0?"+":""}${fmt(dd,2)})</span></span>
+        <span>pitch <b>${pitchTxt}</b>${pCheck}</span>
+        <span>angle <b>${angTxt(f)}</b></span>
+        <span>depth ≈ <b>${hTxt}</b>${hCheck}</span>
+      </div>
+      ${r.e.note?`<div class="note">${esc(r.e.note)}</div>`:""}
+    </div>`;
+  }).join("");
+
+  drawProfile(list[0],m);
+}
+
+/* ================= THREAD PROFILE SVG ================= */
+function drawProfile(r,m){
+  const e=r.e,f=FAM[e.fam];
+  if(e.P==null){$("profile").hidden=true;return;}
+  const P=e.P,h=depthOf(e);
+  const W=640,pitches=4;
+  const s=(W-60)/(pitches*P);            // px per mm, same on both axes
+  const yC=34,yR=yC+h*s;                  // crest & root y
+  const base=yR+18,Hpx=Math.ceil(base+30);  // body edge and canvas height follow the depth (NPT is deep, GL shallow)
+  const x0=30;
+  let d;
+  if(f.angle===0){ // round (GL): smooth bumps
+    d=`M ${x0} ${yR}`;
+    for(let i=0;i<pitches;i++){
+      const xs=x0+i*P*s;
+      d+=` C ${xs+0.2*P*s} ${yR}, ${xs+0.3*P*s} ${yC}, ${xs+0.5*P*s} ${yC}`+
+         ` C ${xs+0.7*P*s} ${yC}, ${xs+0.8*P*s} ${yR}, ${xs+P*s} ${yR}`;
+    }
+  }else{
+    const run=h*Math.tan(f.angle/2*Math.PI/180);
+    let crest=f.angle===30?0.366*P:P/8,root=P-2*run-crest;   // Tr crest flat is 0.366P (ISO 2904); V-threads P/8
+    if(root<0){root=0;crest=Math.max(P-2*run,P*0.05);}
+    d=`M ${x0} ${yC}`;let x=x0;
+    for(let i=0;i<pitches;i++){
+      x+=crest*s; d+=` L ${x.toFixed(1)} ${yC}`;
+      x+=run*s;   d+=` L ${x.toFixed(1)} ${yR}`;
+      x+=root*s;  d+=` L ${x.toFixed(1)} ${yR}`;
+      x+=run*s;   d+=` L ${x.toFixed(1)} ${yC}`;
+    }
+  }
+  const svg=`<svg viewBox="0 0 ${W} ${Hpx}" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Thread profile of ${esc(e.name)}">
+    <path d="${d} L ${W-30} ${base.toFixed(1)} L ${x0} ${base.toFixed(1)} Z" fill="rgba(125,167,199,.10)"/>
+    <path d="${d}" fill="none" stroke="#d9a441" stroke-width="2"/>
+    <line x1="${x0}" y1="${(base+10).toFixed(1)}" x2="${W-30}" y2="${(base+10).toFixed(1)}" stroke="#5b6772" stroke-width="1" stroke-dasharray="10 4 2 4"/>
+    <line x1="${x0+P*s*1.06}" y1="${yC-12}" x2="${x0+P*s*2.06}" y2="${yC-12}" stroke="#7da7c7" stroke-width="1"/>
+    <line x1="${x0+P*s*1.06}" y1="${yC-18}" x2="${x0+P*s*1.06}" y2="${yC-6}" stroke="#7da7c7" stroke-width="1"/>
+    <line x1="${x0+P*s*2.06}" y1="${yC-18}" x2="${x0+P*s*2.06}" y2="${yC-6}" stroke="#7da7c7" stroke-width="1"/>
+    <text x="${x0+P*s*1.56}" y="${yC-17}" fill="#7da7c7" font-family="IBM Plex Mono,monospace" font-size="11" text-anchor="middle">P = ${fmt(P,3)}</text>
+    <text x="${W-30}" y="${(base+24).toFixed(1)}" fill="#5b6772" font-family="IBM Plex Mono,monospace" font-size="10" text-anchor="end">h ≈ ${fmt(h,2)} mm · ${f.angle?f.angle+"° thread angle":"round profile"}</text>
+  </svg>`;
+  $("profileCap").textContent=`PROFILE · ${e.name} · ${FAM[e.fam].label} · drawn to true pitch/depth ratio`;
+  $("profileSvg").innerHTML=svg;
+  $("profile").hidden=false;
+}
+
+/* ================= REFERENCE TABLE ================= */
+function buildTable(filter){
+  const tb=document.querySelector("#dbTable tbody");
+  const q=(filter||"").toLowerCase();
+  tb.innerHTML=DB.filter(e=>!q||(e.name+" "+FAM[e.fam].label+" "+e.note).toLowerCase().includes(q))
+    .map(e=>`<tr><td>${esc(e.name)}</td><td>${FAM[e.fam].label}</td><td>${fmt(e.D,3)}</td><td>${fmt(e.P,3)}</td><td>${e.P!=null?fmt(25.4/e.P,1):"—"}</td><td>${FAM[e.fam].angle?FAM[e.fam].angle+"°":"rnd"}</td><td>${esc(e.note)}</td></tr>`).join("");
+}
+$("dbFilter").addEventListener("input",e=>buildTable(e.target.value));
+buildTable("");
+</script>
+</body>
+</html>
