@@ -1,0 +1,622 @@
+# HVAC Protocol Tool - Czech content (čeština)
+# Struktura zrcadlí en.toml. Klíče sekcí a polí jsou v angličtině schválně -
+# nepřekládat. Překládejte pouze hodnoty v uvozovkách.
+
+# =============================================================================
+# UI CHROME
+# =============================================================================
+
+[ui]
+panel_title          = "Instrukce"
+select_a_step        = "(vyberte krok)"
+no_instructions      = "(žádné instrukce pro tento krok)"
+section_summary      = "Účel"
+section_prerequisites = "Předpoklady"
+section_tools_needed = "Pomůcky"
+section_procedure    = "Postup"
+section_expected     = "Očekávaný výsledek"
+section_troubleshooting = "Řešení problémů"
+section_safety       = "Bezpečnost"
+
+# --- web app (doplněno 2026-10; ke kontrole) ---
+app_title            = "HVAC protokoly"
+app_subtitle         = "Zkoušky klimatizací Faiveley"
+new_protocol         = "Nový protokol"
+import               = "Importovat"
+backup_banner_title  = "Data jsou uložena jen v tomto zařízení"
+backup_banner_text   = "Protokoly se změnami od poslední zálohy: {n}"
+backup_now           = "Zálohovat"
+backup_all           = "Zálohovat vše"
+backup_hint          = "Jeden soubor se všemi protokoly. Uložte ho mimo telefon (Disk Google, e-mail). Obnovíte ho tlačítkem Importovat."
+backup_done          = "Záloha uložena"
+no_protocols         = "Zatím tu nejsou žádné protokoly. Vytvořte nový nebo importujte soubor JSON."
+storage_persistent   = "Úložiště je chráněno proti automatickému mazání"
+storage_best_effort  = "Úložiště není chráněno - nainstalujte aplikaci na plochu"
+stored_locally       = "Protokoly se ukládají jen v tomto prohlížeči v tomto zařízení. Pro zálohu nebo přenos na jiné zařízení použijte Zálohovat vše / Uložit JSON."
+last_backup          = "Poslední záloha: {date}"
+never                = "nikdy"
+install_app          = "Nainstalovat aplikaci"
+not_backed_up        = "nezálohováno"
+optional             = "(nepovinné)"
+train                = "Vlak"
+train_id             = "Číslo vlaku"
+train_id_placeholder = "např. 640_106"
+date                 = "Datum"
+num_carriages        = "Počet vozů"
+ambient_temp         = "Teplota okolí"
+carriages            = "Vozy"
+uic_numbers          = "UIC čísla vozů (nepovinné)"
+units                = "Klimatizační jednotky"
+salon                = "Salon"
+cabin                = "Kabina"
+checks               = "Kontroly"
+measurements         = "Měření"
+calculated           = "Vypočtené hodnoty"
+calc_hint            = "(zobrazí se po zadání surových proudů)"
+out_of_range         = "Mimo očekávaný rozsah {range}"
+note                 = "Poznámka"
+note_title           = "Poznámka - {label}"
+create               = "Vytvořit"
+cancel               = "Zrušit"
+save                 = "Uložit"
+remove               = "Odstranit"
+close                = "Zavřít"
+back                 = "Zpět"
+delete               = "Smazat"
+error                = "Chyba"
+saved                = "Uloženo"
+saving               = "Ukládám..."
+not_saved            = "NEULOŽENO"
+export_pdf           = "Export PDF"
+export_select        = "Vyberte jednotky do PDF:"
+select_all           = "Vše"
+select_none          = "Nic"
+export               = "Exportovat"
+nothing_selected     = "Nic není vybráno."
+incomplete_title     = "Neúplný protokol"
+incomplete_text      = "Některé vybrané jednotky mají nevyplněné kroky:"
+n_empty              = "nevyplněno {n}"
+show_details         = "Zobrazit podrobnosti"
+export_anyway        = "Přesto exportovat"
+generating_pdf       = "Vytvářím PDF..."
+export_failed        = "Export se nezdařil"
+pdf_ready            = "PDF je připraveno"
+open                 = "Otevřít"
+share                = "Sdílet..."
+download             = "Stáhnout"
+save_json            = "Uložit JSON"
+save_json_hint       = "Soubor JSON lze sem znovu importovat nebo otevřít v desktopové aplikaci (složka protocols)."
+delete_protocol      = "Smazat protokol"
+delete_confirm       = "Smazat protokol {name}? Tuto akci nelze vrátit."
+delete_not_backed_up = "Obsahuje změny, které nebyly zálohovány."
+deleted              = "Protokol smazán"
+import_done          = "Importováno protokolů: {n}"
+import_errors        = "Některé soubory nešly importovat"
+invalid_file         = "není soubor s HVAC protokolem"
+import_conflict_title = "Protokol už existuje"
+import_conflict_text = "Protokol {name} už v tomto zařízení je."
+modified             = "Změněno"
+progress             = "Vyplněno"
+on_device            = "V zařízení"
+in_file              = "V souboru"
+skip                 = "Přeskočit"
+keep_both            = "Ponechat oba"
+replace              = "Nahradit"
+update_available     = "Je k dispozici nová verze aplikace."
+reload               = "Načíst znovu"
+
+# =============================================================================
+# SALON - KONTROLY
+# =============================================================================
+
+[salon.flaps]
+label   = "Klapky"
+summary = "Ověřit, že klapka venkovního vzduchu reaguje na povely a koncový snímač hlásí polohu."
+prerequisites = [
+    "Klimatizace zapnutá.",
+    "Otevřená stránka CCS16 na diagnostickém displeji.",
+    "Vizuální přístup ke klapce na střeše vozu.",
+]
+procedure = [
+    "Po zapnutí klimatizace musí v sekci CCS16 svítit digital input 8 (IN8 = 1).",
+    "Sepnout CCS16 OUT8 = 1 (Flap 100% outside). Sledovat pohyb klapky vizuálně.",
+    "Ověřit, že IN8 přejde na 0 jakmile klapka opustí koncovou polohu.",
+    "Po dojetí klapky do venkovní polohy vypnout OUT8.",
+    "Sepnout CCS16 OUT7 = 1 (Flap 100% return). Počkat na návrat klapky.",
+    "Ověřit, že IN8 se vrátí na 1.",
+]
+expected = [
+    "Klapka se viditelně pohybuje oběma směry.",
+    "IN8 přepíná 1 -> 0 při opuštění polohy, 0 -> 1 při návratu.",
+]
+troubleshooting = [
+    "Klapka se nehýbe: zkontrolovat přívod stlačeného vzduchu.",
+    "IN8 nereaguje: zkontrolovat zapojení koncového snímače.",
+]
+
+[salon.valves]
+label   = "Ventily"
+summary = "Ověřit, že každý solenoid při sepnutí výstupu slyšitelně cvakne."
+prerequisites = [
+    "Klimatizace zapnutá, otevřená sekce CCS16.",
+    "Dostatečné ticho, aby bylo slyšet cvaknutí každého ventilu.",
+]
+procedure = [
+    "Sepnout CCS16 OUT10 = 1 (Main fluid line). Poslechnout cvaknutí.",
+    "Sepnout CCS16 OUT11 = 1 (Evaporator). Poslechnout cvaknutí.",
+    "Sepnout CCS16 OUT12 = 1 (Cylinder 1 off). Poslechnout cvaknutí.",
+    "Sepnout CCS16 OUT13 = 1 (Cylinder 2 off). Na některých jednotkách signál chybí - pak přeskočit.",
+    "Sepnout CCS16 OUT14 = 1 (Bypass). Poslechnout cvaknutí.",
+    "Po skončení všechny výstupy vrátit do 0.",
+]
+expected = [
+    "U každého výstupu je slyšet zřetelné cvaknutí ventilu.",
+]
+
+[salon.temp_sensors]
+label   = "Teplotní čidla"
+summary = "Ověřit, že všechna teplotní čidla a snímač vysokého tlaku ukazují realistické hodnoty."
+prerequisites = [
+    "Klimatizace zapnutá.",
+    "Dosažitelné stránky CCM8 a CCS16.",
+]
+procedure = [
+    "CCM8: musí mít 5 čidel s validní hodnotou (6 tam, kde je WC).",
+    "CCS16: musí mít 4 platné teplotní hodnoty.",
+    "CCS16: ověřit, že 'Current values - high pressure' ukazuje realistickou hodnotu.",
+]
+expected = [
+    "Žádné čidlo neukazuje '--' nebo zjevně chybnou hodnotu.",
+    "Hodnota vysokého tlaku odpovídá externímu manometru v rámci pár barů.",
+]
+
+[salon.exhaust_fans]
+label   = "Odtahové ventilátory"
+summary = "Poslechnout oba odtahové ventilátory vozu při 50% a 100% otáček."
+prerequisites = [
+    "Klimatizace zapnutá, otevřená sekce CCM8.",
+    "Slyšitelnost odtahových ventilátorů na střeše vozu (zvenčí nebo přes potrubí).",
+]
+procedure = [
+    "Sepnout CCM8 digital OUT6 = 1.",
+    "Nastavit CCM8 PWM1 na 50% a 500 Hz. Poslechnout oba ventilátory.",
+    "Zvýšit PWM1 na 100%. Opět poslechnout.",
+    "Po skončení vrátit OUT6 a PWM1 do 0.",
+]
+expected = [
+    "Oba ventilátory běží, bez drhnutí nebo nepravidelností.",
+    "Otáčky se viditelně mění mezi 50% a 100%.",
+]
+
+# =============================================================================
+# SALON - MĚŘENÍ
+# =============================================================================
+
+[salon.compressor_heater_current]
+label   = "Odběr topného tělesa kompresoru"
+summary = "Klidový proud topného tělesa kompresoru (odečte se od pozdějších raw měření)."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+prerequisites = ["Klimatizace zapnutá, kompresor VYPNUTÝ."]
+procedure = [
+    "Klešťovým ampérmetrem obejmout vstupní kabel L1.",
+    "Vyčkat na ustálení hodnoty a zapsat.",
+]
+
+[salon.compressor_temp_start]
+label   = "Teplota kompresoru při začátku zkoušky"
+summary = "Počáteční teplota tělesa kompresoru před spuštěním zkoušky."
+tools_needed = ["Bezkontaktní (infračervený) teploměr"]
+procedure = [
+    "Namířit teploměr na těleso kompresoru.",
+    "Zapsat hodnotu.",
+]
+
+[salon.evap_fan_y_raw]
+label   = "Odběr výstupního ventilátoru Y (raw)"
+summary = "Surový odběr výstupního (evaporator) ventilátoru v zapojení Y (hvězda)."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+prerequisites = [
+    "CCS16 IN2 = 1 (jistič ventilátoru sepnutý).",
+    "CCS16 IN1 = 0 (ventilátor zatím vypnutý).",
+]
+procedure = [
+    "Sepnout CCS16 OUT1 = 1 (supply fan on).",
+    "Ověřit, že IN1 přejde na 1.",
+    "Vyčkat na ustálení proudu.",
+    "Odečíst hodnotu z klešťového ampérmetru.",
+]
+
+[salon.evap_fan_delta_raw]
+label   = "Odběr výstupního ventilátoru Δ (raw)"
+summary = "Surový odběr výstupního ventilátoru v zapojení trojúhelník (vyšší otáčky)."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+prerequisites = ["Pokračování z předchozího kroku (OUT1 = 1, ventilátor v Y)."]
+procedure = [
+    "Navíc sepnout CCS16 OUT2 = 1.",
+    "Vyčkat na ustálení proudu.",
+    "Odečíst hodnotu.",
+]
+
+[salon.condenser_fan_y_raw]
+label   = "Odběr ventilátoru kondenzátoru Y (raw)"
+summary = "Surový odběr ventilátoru kondenzátoru v zapojení Y (hvězda)."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+prerequisites = [
+    "CCS16 IN4 = 1 (jistič ventilátoru sepnutý).",
+    "CCS16 IN3 = 0 (ventilátor zatím vypnutý).",
+]
+procedure = [
+    "Sepnout CCS16 OUT3 = 1 (condenser fan on).",
+    "Ověřit, že IN3 přejde na 1.",
+    "Vyčkat na ustálení proudu.",
+    "Odečíst hodnotu.",
+]
+
+[salon.condenser_fan_delta_raw]
+label   = "Odběr ventilátoru kondenzátoru Δ (raw)"
+summary = "Surový odběr ventilátoru kondenzátoru v zapojení trojúhelník (vyšší otáčky)."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+prerequisites = ["Pokračování z předchozího kroku (OUT3 = 1, ventilátor v Y)."]
+procedure = [
+    "Navíc sepnout CCS16 OUT4 = 1.",
+    "Vyčkat na ustálení proudu.",
+    "Odečíst hodnotu.",
+]
+
+[salon.heater_resistance_12]
+label   = "Odpor topnice 1-2 (K4.2_2 - K4.1_3)"
+summary = "Odpor topné větve mezi body K4.2_2 a K4.1_3 (Y zapojení)."
+tools_needed = ["Multimetr (režim Ω)"]
+procedure = [
+    "Změřit odpor mezi body K4.2_2 a K4.1_3.",
+    "Zapsat hodnotu.",
+]
+safety = [
+    "Měřit zcela bez elektrické energie. Proto patří mezi poslední kroky.",
+]
+
+[salon.heater_resistance_23]
+label   = "Odpor topnice 2-3 (K4.1_3 - K4.3_2)"
+summary = "Odpor topné větve mezi body K4.1_3 a K4.3_2."
+tools_needed = ["Multimetr (režim Ω)"]
+procedure = [
+    "Změřit odpor mezi body K4.1_3 a K4.3_2.",
+    "Zapsat hodnotu.",
+]
+safety = ["Měřit bez napětí."]
+
+[salon.heater_resistance_31]
+label   = "Odpor topnice 3-1 (K4.3_2 - K4.2_2)"
+summary = "Odpor topné větve mezi body K4.3_2 a K4.2_2."
+tools_needed = ["Multimetr (režim Ω)"]
+procedure = [
+    "Změřit odpor mezi body K4.3_2 a K4.2_2.",
+    "Zapsat hodnotu.",
+]
+safety = ["Měřit bez napětí."]
+
+[salon.compressor_both_raw]
+label   = "Odběr kompresoru s oběma válci (raw, vše max)"
+summary = "Surový odběr kompresoru při plném výkonu s oběma sepnutými válci."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+prerequisites = [
+    "CCS16 OUT10 (main fluid line) = 1.",
+    "CCS16 OUT11 (evaporator) = 1.",
+    "CCS16 IN10 = 1 (jistič kompresoru sepnutý).",
+]
+procedure = [
+    "Pár sekund před startem kompresoru sepnout OUT14 = 1 (bypass) pro vyrovnání.",
+    "Sepnout CCS16 OUT9 = 1 (compressor on).",
+    "Ověřit, že IN9 = 1 (kompresor běží).",
+    "Pár sekund po stabilním běhu vypnout OUT14 (bypass).",
+    "Ověřit, že IN11 = 1 (low pressure OK) a IN12 = 0 (high pressure NOK).",
+    "Vyčkat na ustálení proudu a odečíst.",
+]
+expected = [
+    "IN9 = 1, IN11 = 1, IN12 = 0 po celou dobu měření.",
+]
+
+[salon.compressor_one_raw]
+label   = "Odběr kompresoru s jedním válcem (raw, vše max)"
+summary = "Surový odběr kompresoru s vypnutým jedním válcem (nižší proud)."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+prerequisites = ["Kompresor stále běží z předchozího kroku."]
+procedure = [
+    "Na chvíli sepnout CCS16 OUT12 = 1 (cylinder 1 off).",
+    "Odečíst proud.",
+    "Vrátit OUT12 = 0 (oba válce znovu sepnuté).",
+]
+
+[salon.operating_low_pressure]
+label   = "Provozní nízký tlak"
+summary = "Sací tlak při stabilním provozu na plný výkon."
+tools_needed = ["Externí manometr (sací větev)"]
+prerequisites = ["Alespoň 5 minut běhu na plný výkon."]
+procedure = ["Odečíst sací manometr."]
+
+[salon.operating_high_pressure]
+label   = "Provozní vysoký tlak"
+summary = "Výtlačný tlak při stabilním provozu na plný výkon."
+tools_needed = ["Externí manometr (výtlačná větev)"]
+prerequisites = ["Alespoň 5 minut běhu na plný výkon."]
+procedure = [
+    "Odečíst výtlačný manometr.",
+    "Porovnat s CCS16 'Current value - high pressure' (rozdíl by měl být pár barů).",
+]
+
+[salon.output_temperature]
+label   = "Výstupní teplota"
+summary = "Teplota výstupního vzduchu (duct) z řídicí jednotky."
+prerequisites = ["Alespoň 5 minut běhu na plný výkon."]
+procedure = ["Odečíst CCS16 Temp1 (Duct temperature)."]
+
+[salon.compressor_temp_end]
+label   = "Teplota kompresoru (konec)"
+summary = "Konečná teplota tělesa kompresoru po běhu na plný výkon."
+tools_needed = ["Bezkontaktní teploměr"]
+procedure = [
+    "Namířit teploměr na těleso kompresoru.",
+    "Zapsat hodnotu.",
+]
+
+[salon.high_pressostat]
+label   = "Vysoký presostat"
+summary = "Tlak, při kterém vysokotlaký presostat vypne kompresor."
+tools_needed = ["Externí manometr (výtlačná větev)"]
+prerequisites = ["Kompresor stabilně běží z předchozích kroků."]
+procedure = [
+    "Nastavit CCS16 OUT3 = 0 a OUT4 = 0 (condenser fan vypnutý).",
+    "Sledovat růst vysokého tlaku.",
+    "Kolem 24 bar MUSÍ kompresor sám vypnout.",
+    "V okamžiku vypnutí odečíst tlak z manometru.",
+    "Ověřit, že IN12 = 1 (high pressure NOK) a IN9 = 0 (kompresor vypnutý).",
+    "Pak: vypnout OUT9, sepnout OUT14 = 1 (bypass), sepnout OUT3 = 1, počkat, sepnout OUT4 = 1.",
+    "Po vyrovnání tlaků znovu spustit kompresor a nechat stabilizovat (vypnout OUT14).",
+]
+expected = [
+    "Kompresor sám vypne přibližně při 24 bar.",
+]
+safety = [
+    "Pokud kompresor NEVYPNE do ~26 bar, ihned ho vypněte ručně - vysokotlaká pojistka selhala.",
+]
+
+[salon.low_pressostat]
+label   = "Nízký presostat"
+summary = "Tlak, při kterém nízkotlaká pojistka hlásí pokles sání pod limit."
+tools_needed = ["Externí manometr (sací větev)"]
+procedure = [
+    "Nastavit CCS16 OUT1 = 0 a OUT2 = 0 (supply fan vypnutý).",
+    "Sledovat pokles sacího tlaku.",
+    "Přibližně při 0,5 bar musí IN11 (low pressure OK) přejít na 0.",
+    "V tom okamžiku odečíst manometr.",
+    "Pak vše vypnout a otevřít bypass pro vyrovnání systému.",
+]
+expected = [
+    "IN11 přepne na 0 přibližně při 0,5 bar.",
+]
+
+# =============================================================================
+# KABINA - KONTROLY
+# =============================================================================
+
+[cabin.flaps]
+label   = "Klapky"
+summary = "Ověřit pohyb obou klapek kabiny a sledování koncových snímačů."
+prerequisites = [
+    "Klimatizace kabiny zapnutá, otevřená sekce CCS8.",
+    "Vizuální přístup k oběma klapkám.",
+]
+procedure = [
+    "Po zapnutí klimatizace musí být CCS8 IN6 = 1 (flap endpos return) a IN8 = 1 (flap 100% heat).",
+    "Sepnout OUT7 = 1 (100% fresh). Pravá klapka se začne hýbat, IN6 přejde na 0.",
+    "Nastavit PWM3 = 100% a 500 Hz (kvůli nedostatku IO). Spodní klapka se začne hýbat, IN8 přejde na 0.",
+    "Po dojetí obou klapek vrátit OUT7 = 0 a PWM3 = 0.",
+    "Sepnout OUT6 = 1 (100% return) a OUT8 = 1 (100% heat).",
+    "Vyčkat na návrat obou klapek. IN6 a IN8 se musí vrátit na 1.",
+]
+expected = [
+    "Obě klapky se viditelně pohybují a dojedou do koncových poloh.",
+    "IN6 a IN8 sledují požadovaný směr.",
+]
+
+[cabin.valves]
+label   = "Ventily"
+summary = "Ověřit sepnutí solenoidů kabiny - při odjištěném F2, aby se kompresor nerozjel."
+prerequisites = [
+    "Klimatizace kabiny napájená, dosažitelná sekce CCS8.",
+    "Dostatečné ticho na poslech cvaknutí.",
+]
+procedure = [
+    "Shodit motorový jistič F2 (nejdále od uživatele).",
+    "Sepnout CCS8 OUT3 = 1 (compressor). Musí být slyšet sepnutí ventilu.",
+    "Sepnout CCS8 OUT5 = 1 (bypass). Musí být slyšet sepnutí ventilu.",
+    "Vypnout oba výstupy.",
+    "Znovu zapnout jistič F2.",
+]
+safety = [
+    "Shodit F2 PŘED sepnutím výstupu kompresoru - tím se zabrání, aby se kompresor během testu skutečně rozjel.",
+]
+
+[cabin.temp_sensors]
+label   = "Teplotní čidla"
+summary = "Ověřit, že všechna teplotní čidla kabiny a snímač vysokého tlaku ukazují realistické hodnoty."
+procedure = [
+    "CCS8: v sekci Temperature musí být 5 platných hodnot.",
+    "CCS8: 'Current values - high pressure' musí ukazovat reálnou hodnotu.",
+]
+
+# =============================================================================
+# KABINA - MĚŘENÍ
+# =============================================================================
+
+[cabin.compressor_heater_current]
+label   = "Odběr topného tělesa kompresoru"
+summary = "Klidový proud topného tělesa kompresoru kabiny (odečte se od pozdějších raw měření)."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+procedure = [
+    "Klešťovým ampérmetrem obejmout vstupní kabel L2.",
+    "Vyčkat na ustálení hodnoty a zapsat.",
+]
+
+[cabin.compressor_temp_start]
+label   = "Teplota kompresoru při začátku zkoušky"
+summary = "Počáteční teplota tělesa kompresoru kabiny před zkouškou."
+tools_needed = ["Bezkontaktní teploměr"]
+procedure = [
+    "Namířit teploměr na těleso kompresoru.",
+    "Zapsat hodnotu.",
+]
+
+[cabin.evap_fan_1f]
+label   = "Odběr výstupního ventilátoru 1F 100%"
+summary = "Jednofázový proud výstupního ventilátoru kabiny při PWM 100%."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+procedure = [
+    "Klešťový ampérmetr obejmout kabel na jističi F1 (jednofázový).",
+    "Sepnout CCS8 OUT1 = 1 (release supply fan).",
+    "Nastavit PWM1 = 100% a 500 Hz.",
+    "Ověřit, že IN1 (supply fan ON) přejde na 1.",
+    "Vyčkat na ustálení a odečíst.",
+]
+
+[cabin.condenser_fan_3f_raw]
+label   = "Odběr ventilátoru kondenzátoru 3F 100% (raw)"
+summary = "Surový (3F) proud ventilátoru kondenzátoru kabiny."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+procedure = [
+    "Vrátit klešťový ampérmetr na kabel L2.",
+    "Sepnout CCS8 OUT2 = 1.",
+    "Ověřit, že IN3 (condenser fan ON) přejde na 1.",
+    "Vyčkat na ustálení a odečíst.",
+]
+
+[cabin.heater_resistance_12]
+label   = "Odpor topnice 1-2 (F4_2 - F4_4)"
+summary = "Odpor topné větve kabiny mezi body F4_2 a F4_4."
+tools_needed = ["Multimetr (režim Ω)"]
+procedure = ["Změřit odpor mezi body F4_2 a F4_4."]
+safety = [
+    "Měřit zcela bez napětí. Proto patří mezi poslední kroky.",
+]
+
+[cabin.heater_resistance_23]
+label   = "Odpor topnice 2-3 (F4_4 - F4_6)"
+summary = "Odpor topné větve kabiny mezi body F4_4 a F4_6."
+tools_needed = ["Multimetr (režim Ω)"]
+procedure = ["Změřit odpor mezi body F4_4 a F4_6."]
+safety = ["Měřit bez napětí."]
+
+[cabin.heater_resistance_31]
+label   = "Odpor topnice 3-1 (F4_6 - F4_2)"
+summary = "Odpor topné větve kabiny mezi body F4_6 a F4_2."
+tools_needed = ["Multimetr (režim Ω)"]
+procedure = ["Změřit odpor mezi body F4_6 a F4_2."]
+safety = ["Měřit bez napětí."]
+
+[cabin.compressor_raw]
+label   = "Odběr kompresoru (raw)"
+summary = "Surový proud kompresoru kabiny při ustáleném provozu."
+tools_needed = ["Klešťový ampérmetr (jednofázový)"]
+prerequisites = [
+    "Condenser fan ON, release supply fan ON.",
+]
+procedure = [
+    "Pár sekund před startem kompresoru sepnout OUT5 = 1 (bypass).",
+    "Sepnout CCS8 OUT3 = 1 (compressor on).",
+    "Ověřit, že IN2 (compressor ON) přejde na 1.",
+    "Pár sekund po stabilním běhu vypnout OUT5 (bypass).",
+    "Ověřit, že IN5 (low pressure OK) zůstane na 1.",
+    "Vyčkat na ustálení a odečíst.",
+]
+
+[cabin.operating_low_pressure]
+label   = "Provozní nízký tlak"
+summary = "Sací tlak kabiny při stabilním provozu na plný výkon."
+tools_needed = ["Externí manometr (sací větev)"]
+prerequisites = ["Alespoň 5 minut běhu na plný výkon."]
+procedure = ["Odečíst sací manometr."]
+
+[cabin.operating_high_pressure]
+label   = "Provozní vysoký tlak"
+summary = "Výtlačný tlak kabiny při stabilním provozu na plný výkon."
+tools_needed = ["Externí manometr (výtlačná větev)"]
+prerequisites = ["Alespoň 5 minut běhu na plný výkon."]
+procedure = [
+    "Odečíst výtlačný manometr.",
+    "Porovnat s CCS8 'Current value - high pressure' (rozdíl by měl být pár barů).",
+]
+
+[cabin.output_temperature]
+label   = "Výstupní teplota"
+summary = "Teplota výstupního vzduchu kabiny z řídicí jednotky."
+prerequisites = ["Alespoň 5 minut běhu na plný výkon."]
+procedure = ["Odečíst CCS8 Temp1 (Duct temperature)."]
+
+[cabin.compressor_temp_end]
+label   = "Teplota kompresoru (konec)"
+summary = "Konečná teplota tělesa kompresoru kabiny po běhu na plný výkon."
+tools_needed = ["Bezkontaktní teploměr"]
+procedure = [
+    "Namířit teploměr na těleso kompresoru.",
+    "Zapsat hodnotu.",
+]
+
+[cabin.high_pressostat]
+label   = "Vysoký presostat"
+summary = "Tlak, při kterém vysokotlaký presostat kabiny vypne kompresor."
+tools_needed = ["Externí manometr (výtlačná větev)"]
+procedure = [
+    "Nastavit CCS8 OUT2 = 0 (condenser fan vypnutý).",
+    "Sledovat růst vysokého tlaku.",
+    "Kolem 24 bar MUSÍ kompresor sám vypnout.",
+    "V okamžiku vypnutí odečíst tlak z manometru.",
+    "Ověřit, že IN2 (compressor ON) přejde na 0.",
+    "Pak: vypnout OUT3, na chvíli sepnout OUT5 = 1 (bypass) pro vyrovnání.",
+]
+expected = [
+    "Kompresor sám vypne přibližně při 24 bar.",
+]
+safety = [
+    "Pokud kompresor NEVYPNE do ~26 bar, ihned ho vypněte ručně.",
+]
+
+[cabin.low_pressostat]
+label   = "Nízký presostat"
+summary = "Tlak, při kterém nízkotlaká pojistka hlásí pokles sání pod limit."
+tools_needed = ["Externí manometr (sací větev)"]
+procedure = [
+    "Nastavit CCS8 PWM1 = 20%.",
+    "Mechanicky sundat solenoid z kompresoru.",
+    "Sepnout OUT2 = 1 (condenser fan).",
+    "Vyčkat, až tlak klesne pod cca 0,5 bar.",
+    "Ověřit, že IN5 (low press DC OK) přejde na 0.",
+    "Odečíst manometr a všechno vypnout.",
+]
+
+# =============================================================================
+# VYPOČTENÉ HODNOTY
+# =============================================================================
+
+[salon_calc.evap_fan_y]
+label = "Odběr výstupního ventilátoru Y"
+
+[salon_calc.evap_fan_delta]
+label = "Odběr výstupního ventilátoru Δ"
+
+[salon_calc.condenser_fan_y]
+label = "Odběr ventilátoru kondenzátoru Y"
+
+[salon_calc.condenser_fan_delta]
+label = "Odběr ventilátoru kondenzátoru Δ"
+
+[salon_calc.compressor_both]
+label = "Odběr kompresoru s oběma válci"
+
+[salon_calc.compressor_one]
+label = "Odběr kompresoru s jedním válcem"
+
+[cabin_calc.condenser_fan_3f]
+label = "Odběr ventilátoru kondenzátoru 3F 100%"
+
+[cabin_calc.compressor]
+label = "Odběr kompresoru"

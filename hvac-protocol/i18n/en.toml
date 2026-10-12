@@ -1,0 +1,632 @@
+# HVAC Protocol Tool - English content
+# Structure:
+#   [salon.<step_id>]     content for salon checks + measurements
+#   [cabin.<step_id>]     content for cabin checks + measurements
+#   [salon_calc.<key>]    label for derived calculated values (salon)
+#   [cabin_calc.<key>]    label for derived calculated values (cabin)
+#   [ui]                  UI chrome strings
+# Fields per step (all optional except label):
+#   label, summary, prerequisites[], tools_needed[], procedure[],
+#   expected[], troubleshooting[], safety[]
+# Lists with one item are allowed.
+
+# =============================================================================
+# UI CHROME
+# =============================================================================
+
+[ui]
+panel_title          = "Instructions"
+select_a_step        = "(select a step)"
+no_instructions      = "(no instructions for this step)"
+section_summary      = "Summary"
+section_prerequisites = "Prerequisites"
+section_tools_needed = "Tools needed"
+section_procedure    = "Procedure"
+section_expected     = "Expected result"
+section_troubleshooting = "Troubleshooting"
+section_safety       = "Safety"
+
+# --- web app ---
+app_title            = "HVAC protocols"
+app_subtitle         = "Faiveley train HVAC tests"
+new_protocol         = "New protocol"
+import               = "Import"
+backup_banner_title  = "Data is stored only on this device"
+backup_banner_text   = "Protocols changed since the last backup: {n}"
+backup_now           = "Back up"
+backup_all           = "Back up all"
+backup_hint          = "One file with all protocols. Keep it off this phone (Google Drive, e-mail). Restore it with Import."
+backup_done          = "Backup saved"
+no_protocols         = "No protocols yet. Create a new one or import a JSON file."
+storage_persistent   = "Storage is protected from automatic cleanup"
+storage_best_effort  = "Storage is not protected - install the app to your home screen"
+stored_locally       = "Protocols are saved only in this browser on this device. Use Back up all / Save JSON to keep a copy or move them to another device."
+last_backup          = "Last backup: {date}"
+never                = "never"
+install_app          = "Install app"
+not_backed_up        = "not backed up"
+optional             = "(optional)"
+train                = "Train"
+train_id             = "Train ID"
+train_id_placeholder = "e.g. 640_106"
+date                 = "Date"
+num_carriages        = "Number of carriages"
+ambient_temp         = "Ambient temperature"
+carriages            = "Carriages"
+uic_numbers          = "UIC numbers (optional)"
+units                = "HVAC units"
+salon                = "Salon"
+cabin                = "Cabin"
+checks               = "Checks"
+measurements         = "Measurements"
+calculated           = "Calculated (derived)"
+calc_hint            = "(appears after raw current measurements are entered)"
+out_of_range         = "Outside expected range {range}"
+note                 = "Note"
+note_title           = "Note - {label}"
+create               = "Create"
+cancel               = "Cancel"
+save                 = "Save"
+remove               = "Remove"
+close                = "Close"
+back                 = "Back"
+delete               = "Delete"
+error                = "Error"
+saved                = "Saved"
+saving               = "Saving..."
+not_saved            = "NOT SAVED"
+export_pdf           = "Export PDF"
+export_select        = "Select units to include in the PDF:"
+select_all           = "All"
+select_none          = "None"
+export               = "Export"
+nothing_selected     = "Nothing selected."
+incomplete_title     = "Incomplete protocol"
+incomplete_text      = "Some selected units have empty steps:"
+n_empty              = "{n} empty"
+show_details         = "Show details"
+export_anyway        = "Export anyway"
+generating_pdf       = "Generating PDF..."
+export_failed        = "Export failed"
+pdf_ready            = "PDF ready"
+open                 = "Open"
+share                = "Share..."
+download             = "Download"
+save_json            = "Save JSON"
+save_json_hint       = "The JSON file can be imported here again or opened in the desktop app (protocols folder)."
+delete_protocol      = "Delete protocol"
+delete_confirm       = "Delete protocol {name}? This cannot be undone."
+delete_not_backed_up = "It has changes that were never backed up."
+deleted              = "Protocol deleted"
+import_done          = "Protocols imported: {n}"
+import_errors        = "Some files could not be imported"
+invalid_file         = "not an HVAC protocol file"
+import_conflict_title = "Protocol already exists"
+import_conflict_text = "Protocol {name} is already on this device."
+modified             = "Modified"
+progress             = "Filled"
+on_device            = "On device"
+in_file              = "In file"
+skip                 = "Skip"
+keep_both            = "Keep both"
+replace              = "Replace"
+update_available     = "A new version of the app is available."
+reload               = "Reload"
+
+# =============================================================================
+# SALON - CHECKS
+# =============================================================================
+
+[salon.flaps]
+label   = "Flaps"
+summary = "Verify the outside-air flap moves on command and the endpoint feedback follows."
+prerequisites = [
+    "HVAC unit powered on.",
+    "CCS16 page open on the diagnostic display.",
+    "Visual access to the flap on the carriage roof.",
+]
+procedure = [
+    "Confirm CCS16 IN8 = 1 (flap at return endpoint).",
+    "Set CCS16 OUT8 = 1 (flap 100% outside). Watch the flap move visually.",
+    "Confirm IN8 transitions to 0 once the flap leaves its endpoint.",
+    "When the flap reaches the outside endpoint, clear OUT8.",
+    "Set CCS16 OUT7 = 1 (flap 100% return). Wait for the flap to return.",
+    "Confirm IN8 returns to 1.",
+]
+expected = [
+    "Flap visibly moves in both directions.",
+    "IN8 flips 1 -> 0 when leaving the endpoint, 0 -> 1 when returning.",
+]
+troubleshooting = [
+    "Flap doesn't move: check pneumatic air supply.",
+    "IN8 doesn't follow: check the endpoint proximity-sensor wiring.",
+]
+
+[salon.valves]
+label   = "Solenoid valves"
+summary = "Verify each solenoid energises (audible click) when its output is asserted."
+prerequisites = [
+    "HVAC unit powered on, CCS16 page open.",
+    "Quiet enough to hear the click of each solenoid.",
+]
+procedure = [
+    "Set CCS16 OUT10 = 1 (Main fluid line). Listen for a click.",
+    "Set CCS16 OUT11 = 1 (Evaporator). Listen for a click.",
+    "Set CCS16 OUT12 = 1 (Cylinder 1 off). Listen for a click.",
+    "Set CCS16 OUT13 = 1 (Cylinder 2 off). May be missing on some units - skip if no signal.",
+    "Set CCS16 OUT14 = 1 (Bypass). Listen for a click.",
+    "Clear all outputs you set when done.",
+]
+expected = [
+    "An audible click each time you assert an output.",
+]
+
+[salon.temp_sensors]
+label   = "Temperature sensors"
+summary = "Verify all temperature sensors and the high-pressure transducer report realistic values."
+prerequisites = [
+    "HVAC unit powered on.",
+    "CCM8 and CCS16 pages reachable.",
+]
+procedure = [
+    "On CCM8: confirm 5 sensors show valid values (6 where WC is installed).",
+    "On CCS16: confirm 4 temperature values are valid.",
+    "On CCS16: confirm 'Current values - high pressure' shows a realistic value.",
+]
+expected = [
+    "No sensor shows -- / out-of-range / obviously wrong value.",
+    "High-pressure value matches the external gauge within a few bar.",
+]
+
+[salon.exhaust_fans]
+label   = "Exhaust ventilators"
+summary = "Listen to both exhaust ventilators on the carriage at 50% and 100% speed."
+prerequisites = [
+    "HVAC unit powered on, CCM8 page open.",
+    "You can hear the carriage-roof exhaust fans from outside or via the duct.",
+]
+procedure = [
+    "Set CCM8 digital OUT6 = 1.",
+    "Set CCM8 PWM1 = 50% at 500 Hz. Listen to both fans.",
+    "Raise PWM1 to 100%. Listen again.",
+    "When done, clear OUT6 and reset PWM1.",
+]
+expected = [
+    "Both fans run, no grinding or imbalance noise.",
+    "Speed visibly increases between 50% and 100%.",
+]
+
+# =============================================================================
+# SALON - MEASUREMENTS
+# =============================================================================
+
+[salon.compressor_heater_current]
+label   = "Compressor heater current"
+summary = "Baseline current of the compressor sump heater (subtracted from later raw readings)."
+tools_needed = ["Clamp meter (single phase)"]
+prerequisites = ["HVAC unit powered, compressor OFF."]
+procedure = [
+    "Clamp the meter around input cable L1.",
+    "Wait for the reading to settle, then record.",
+]
+
+[salon.compressor_temp_start]
+label   = "Compressor temp at start"
+summary = "Initial compressor body temperature before the test run begins."
+tools_needed = ["Non-contact (infrared) thermometer"]
+procedure = [
+    "Aim the IR thermometer at the compressor body.",
+    "Record the reading.",
+]
+
+[salon.evap_fan_y_raw]
+label   = "Evaporator fan Y (raw)"
+summary = "Raw clamp-meter current of the evaporator (supply) fan running in star (Y) configuration."
+tools_needed = ["Clamp meter (single phase)"]
+prerequisites = [
+    "CCS16 IN2 = 1 (supply fan breaker engaged).",
+    "CCS16 IN1 = 0 (supply fan currently off).",
+]
+procedure = [
+    "Set CCS16 OUT1 = 1 (supply fan on).",
+    "Verify IN1 transitions to 1.",
+    "Wait for current to stabilise.",
+    "Read the clamp meter.",
+]
+
+[salon.evap_fan_delta_raw]
+label   = "Evaporator fan Δ (raw)"
+summary = "Raw current of the evaporator (supply) fan running in delta - higher speed."
+tools_needed = ["Clamp meter (single phase)"]
+prerequisites = ["Continuing from the previous step (OUT1 = 1, fan in star)."]
+procedure = [
+    "Additionally set CCS16 OUT2 = 1.",
+    "Wait for current to stabilise.",
+    "Read the clamp meter.",
+]
+
+[salon.condenser_fan_y_raw]
+label   = "Condenser fan Y (raw)"
+summary = "Raw current of the condenser fan running in star (Y) configuration."
+tools_needed = ["Clamp meter (single phase)"]
+prerequisites = [
+    "CCS16 IN4 = 1 (condenser fan breaker engaged).",
+    "CCS16 IN3 = 0 (condenser fan currently off).",
+]
+procedure = [
+    "Set CCS16 OUT3 = 1 (condenser fan on).",
+    "Verify IN3 transitions to 1.",
+    "Wait for current to stabilise.",
+    "Read the clamp meter.",
+]
+
+[salon.condenser_fan_delta_raw]
+label   = "Condenser fan Δ (raw)"
+summary = "Raw current of the condenser fan running in delta - higher speed."
+tools_needed = ["Clamp meter (single phase)"]
+prerequisites = ["Continuing from the previous step (OUT3 = 1, fan in star)."]
+procedure = [
+    "Additionally set CCS16 OUT4 = 1.",
+    "Wait for current to stabilise.",
+    "Read the clamp meter.",
+]
+
+[salon.heater_resistance_12]
+label   = "Heater resistance 1-2"
+summary = "Resistance of heater coil between points K4.2_2 and K4.1_3 (Y configuration)."
+tools_needed = ["Multimeter (Ω mode)"]
+procedure = [
+    "Measure resistance between K4.2_2 and K4.1_3.",
+    "Record the reading.",
+]
+safety = [
+    "Measure with the unit fully powered off. This is one of the last steps for that reason.",
+]
+
+[salon.heater_resistance_23]
+label   = "Heater resistance 2-3"
+summary = "Resistance of heater coil between points K4.1_3 and K4.3_2."
+tools_needed = ["Multimeter (Ω mode)"]
+procedure = [
+    "Measure resistance between K4.1_3 and K4.3_2.",
+    "Record the reading.",
+]
+safety = ["Power off."]
+
+[salon.heater_resistance_31]
+label   = "Heater resistance 3-1"
+summary = "Resistance of heater coil between points K4.3_2 and K4.2_2."
+tools_needed = ["Multimeter (Ω mode)"]
+procedure = [
+    "Measure resistance between K4.3_2 and K4.2_2.",
+    "Record the reading.",
+]
+safety = ["Power off."]
+
+[salon.compressor_both_raw]
+label   = "Compressor both cylinders (raw, max)"
+summary = "Raw current of the compressor running at full load with both cylinders engaged."
+tools_needed = ["Clamp meter (single phase)"]
+prerequisites = [
+    "CCS16 OUT10 (main fluid line) = 1.",
+    "CCS16 OUT11 (evaporator) = 1.",
+    "CCS16 IN10 = 1 (compressor breaker engaged).",
+]
+procedure = [
+    "A few seconds before compressor start, set OUT14 = 1 (bypass) to help equalise.",
+    "Set CCS16 OUT9 = 1 (compressor on).",
+    "Verify IN9 = 1 (compressor running).",
+    "A few seconds after stable running, clear OUT14 (bypass).",
+    "Verify IN11 = 1 (low pressure OK) and IN12 = 0 (high pressure NOK).",
+    "Wait for current to stabilise, then read.",
+]
+expected = [
+    "IN9 = 1, IN11 = 1, IN12 = 0 throughout the measurement.",
+]
+
+[salon.compressor_one_raw]
+label   = "Compressor one cylinder (raw, max)"
+summary = "Raw current of the compressor with one cylinder disabled (lower current)."
+tools_needed = ["Clamp meter (single phase)"]
+prerequisites = ["Compressor already running from previous step."]
+procedure = [
+    "Briefly set CCS16 OUT12 = 1 (cylinder 1 off).",
+    "Read the current.",
+    "Clear OUT12 = 0 to return to both-cylinder operation.",
+]
+
+[salon.operating_low_pressure]
+label   = "Operating low pressure"
+summary = "Suction-side pressure under stable full-power operation."
+tools_needed = ["External pressure gauge (low side)"]
+prerequisites = ["At least 5 minutes of full-power runtime."]
+procedure = ["Read the suction gauge."]
+
+[salon.operating_high_pressure]
+label   = "Operating high pressure"
+summary = "Discharge-side pressure under stable full-power operation."
+tools_needed = ["External pressure gauge (high side)"]
+prerequisites = ["At least 5 minutes of full-power runtime."]
+procedure = [
+    "Read the discharge gauge.",
+    "Cross-check against CCS16 'Current value - high pressure' (should match within a few bar).",
+]
+
+[salon.output_temperature]
+label   = "Output temperature"
+summary = "Duct (supply air) temperature read from the controller after the unit is stable."
+procedure = ["Read CCS16 Temp1 (Duct temperature)."]
+prerequisites = ["At least 5 minutes of full-power runtime."]
+
+[salon.compressor_temp_end]
+label   = "Compressor temperature (end)"
+summary = "Final compressor body temperature after the full-power run."
+tools_needed = ["Non-contact (infrared) thermometer"]
+procedure = [
+    "Aim the IR thermometer at the compressor body.",
+    "Record the reading.",
+]
+
+[salon.high_pressostat]
+label   = "High pressostat"
+summary = "Pressure at which the high-pressure safety cuts the compressor off."
+tools_needed = ["External pressure gauge (high side)"]
+prerequisites = [
+    "Compressor running stable from previous steps.",
+]
+procedure = [
+    "Set CCS16 OUT3 = 0 and OUT4 = 0 (condenser fan off).",
+    "Watch the high-side pressure rise.",
+    "Around 24 bar the compressor MUST shut off on its own.",
+    "Read the pressure on the gauge at the moment of shut-off.",
+    "Verify IN12 = 1 (high pressure NOK) and IN9 = 0 (compressor off).",
+    "Then: clear OUT9, set OUT14 = 1 (bypass), set OUT3 = 1, wait, set OUT4 = 1.",
+    "After pressures equalise, restart the compressor and let it stabilise (clear OUT14).",
+]
+expected = [
+    "Compressor shuts off automatically at approximately 24 bar.",
+]
+safety = [
+    "If the compressor does NOT shut off by ~26 bar, manually stop it immediately - the high-pressure safety has failed.",
+]
+
+[salon.low_pressostat]
+label   = "Low pressostat"
+summary = "Pressure at which the low-pressure safety reports the suction has dropped too far."
+tools_needed = ["External pressure gauge (low side)"]
+procedure = [
+    "Set CCS16 OUT1 = 0 and OUT2 = 0 (supply fan off).",
+    "Watch the suction pressure drop.",
+    "At approximately 0.5 bar IN11 (low pressure OK) must go to 0.",
+    "Read the gauge at that moment.",
+    "Then shut everything down and open the bypass to equalise the system.",
+]
+expected = [
+    "IN11 flips to 0 at approximately 0.5 bar.",
+]
+
+# =============================================================================
+# CABIN - CHECKS
+# =============================================================================
+
+[cabin.flaps]
+label   = "Flaps"
+summary = "Verify both cabin flaps move on command and the endpoint feedback follows for each."
+prerequisites = [
+    "HVAC unit powered on, CCS8 page open.",
+    "Visual access to both cabin flaps.",
+]
+procedure = [
+    "Confirm CCS8 IN6 = 1 (flap endpoint - return air) and IN8 = 1 (flap 100% heat).",
+    "Set OUT7 = 1 (100% fresh). The right flap should move, IN6 goes to 0.",
+    "Set PWM3 = 100% at 500 Hz. The bottom flap should move, IN8 goes to 0.",
+    "When both flaps have travelled: clear OUT7 = 0 and PWM3 = 0.",
+    "Set OUT6 = 1 (100% return) and OUT8 = 1 (100% heat).",
+    "Wait for both flaps to return. IN6 and IN8 must both return to 1.",
+]
+expected = [
+    "Both flaps move visibly and reach their endpoints.",
+    "IN6 and IN8 follow the commanded direction.",
+]
+
+[cabin.valves]
+label   = "Solenoid valves"
+summary = "Verify cabin solenoids engage audibly with motor breaker F2 isolated for safety."
+prerequisites = [
+    "Cabin HVAC powered, CCS8 page accessible.",
+    "Quiet enough to hear the click of each solenoid.",
+]
+procedure = [
+    "Trip motor breaker F2 (the one farthest from the user).",
+    "Set CCS8 OUT3 = 1 (compressor). Listen for the valve to engage.",
+    "Set CCS8 OUT5 = 1 (bypass). Listen for the valve to engage.",
+    "Clear both outputs.",
+    "Re-engage breaker F2.",
+]
+safety = [
+    "Trip F2 BEFORE energising the compressor output - this prevents the actual compressor from starting during the valve test.",
+]
+
+[cabin.temp_sensors]
+label   = "Temperature sensors"
+summary = "Verify all cabin temperature sensors and the high-pressure transducer report realistic values."
+procedure = [
+    "On CCS8: confirm the Temperature section shows 5 valid values.",
+    "On CCS8: confirm 'Current values - high pressure' shows a realistic value.",
+]
+
+# =============================================================================
+# CABIN - MEASUREMENTS
+# =============================================================================
+
+[cabin.compressor_heater_current]
+label   = "Compressor heater current"
+summary = "Baseline current of the cabin compressor sump heater (subtracted from later raw readings)."
+tools_needed = ["Clamp meter (single phase)"]
+procedure = [
+    "Clamp the meter around input cable L2.",
+    "Wait for the reading to settle, then record.",
+]
+
+[cabin.compressor_temp_start]
+label   = "Compressor temp at start"
+summary = "Initial cabin compressor body temperature before the test run."
+tools_needed = ["Non-contact (infrared) thermometer"]
+procedure = [
+    "Aim the IR thermometer at the compressor body.",
+    "Record the reading.",
+]
+
+[cabin.evap_fan_1f]
+label   = "Evaporator fan 1F 100%"
+summary = "Single-phase current of the cabin supply fan at 100% PWM."
+tools_needed = ["Clamp meter (single phase)"]
+procedure = [
+    "Clamp the meter around the cable on breaker F1 (single-phase).",
+    "Set CCS8 OUT1 = 1 (release supply fan).",
+    "Set PWM1 = 100% at 500 Hz.",
+    "Verify IN1 (supply fan ON) goes to 1.",
+    "Wait for stabilisation, then read.",
+]
+
+[cabin.condenser_fan_3f_raw]
+label   = "Condenser fan 3F 100% (raw)"
+summary = "Three-phase (raw) current of the cabin condenser fan."
+tools_needed = ["Clamp meter (single phase)"]
+procedure = [
+    "Move the clamp meter back to cable L2.",
+    "Set CCS8 OUT2 = 1.",
+    "Verify IN3 (condenser fan ON) goes to 1.",
+    "Wait for stabilisation, then read.",
+]
+
+[cabin.heater_resistance_12]
+label   = "Heater resistance 1-2 (F4_2 - F4_4)"
+summary = "Resistance of cabin heater coil between F4_2 and F4_4."
+tools_needed = ["Multimeter (Ω mode)"]
+procedure = ["Measure resistance between F4_2 and F4_4."]
+safety = [
+    "Measure with the unit fully powered off. This is one of the last steps for that reason.",
+]
+
+[cabin.heater_resistance_23]
+label   = "Heater resistance 2-3 (F4_4 - F4_6)"
+summary = "Resistance of cabin heater coil between F4_4 and F4_6."
+tools_needed = ["Multimeter (Ω mode)"]
+procedure = ["Measure resistance between F4_4 and F4_6."]
+safety = ["Power off."]
+
+[cabin.heater_resistance_31]
+label   = "Heater resistance 3-1 (F4_6 - F4_2)"
+summary = "Resistance of cabin heater coil between F4_6 and F4_2."
+tools_needed = ["Multimeter (Ω mode)"]
+procedure = ["Measure resistance between F4_6 and F4_2."]
+safety = ["Power off."]
+
+[cabin.compressor_raw]
+label   = "Compressor (raw)"
+summary = "Raw current of the cabin compressor at stable operation."
+tools_needed = ["Clamp meter (single phase)"]
+prerequisites = [
+    "Condenser fan ON, release supply fan ON.",
+]
+procedure = [
+    "A few seconds before compressor start, set OUT5 = 1 (bypass).",
+    "Set CCS8 OUT3 = 1 (compressor on).",
+    "Verify IN2 (compressor ON) goes to 1.",
+    "A few seconds after stable running, clear OUT5 (bypass).",
+    "Verify IN5 (low pressure OK) stays 1.",
+    "Wait for current to stabilise, then read.",
+]
+
+[cabin.operating_low_pressure]
+label   = "Operating low pressure"
+summary = "Cabin suction-side pressure under stable full-power operation."
+tools_needed = ["External pressure gauge (low side)"]
+prerequisites = ["At least 5 minutes of full-power runtime."]
+procedure = ["Read the suction gauge."]
+
+[cabin.operating_high_pressure]
+label   = "Operating high pressure"
+summary = "Cabin discharge-side pressure under stable full-power operation."
+tools_needed = ["External pressure gauge (high side)"]
+prerequisites = ["At least 5 minutes of full-power runtime."]
+procedure = [
+    "Read the discharge gauge.",
+    "Cross-check against CCS8 'Current value - high pressure' (should match within a few bar).",
+]
+
+[cabin.output_temperature]
+label   = "Output temperature"
+summary = "Cabin duct temperature read from the controller."
+prerequisites = ["At least 5 minutes of full-power runtime."]
+procedure = ["Read CCS8 Temp1 (Duct temperature)."]
+
+[cabin.compressor_temp_end]
+label   = "Compressor temperature (end)"
+summary = "Final cabin compressor body temperature after the full-power run."
+tools_needed = ["Non-contact (infrared) thermometer"]
+procedure = [
+    "Aim the IR thermometer at the compressor body.",
+    "Record the reading.",
+]
+
+[cabin.high_pressostat]
+label   = "High pressostat"
+summary = "Pressure at which the cabin high-pressure safety cuts the compressor off."
+tools_needed = ["External pressure gauge (high side)"]
+procedure = [
+    "Set CCS8 OUT2 = 0 (condenser fan off).",
+    "Watch the high-side pressure rise.",
+    "Around 24 bar the compressor MUST shut off on its own.",
+    "Read the pressure on the gauge at the moment of shut-off.",
+    "Verify IN2 (compressor ON) goes to 0.",
+    "Then: clear OUT3 and briefly set OUT5 = 1 (bypass) to equalise.",
+]
+expected = [
+    "Compressor shuts off automatically at approximately 24 bar.",
+]
+safety = [
+    "If the compressor does NOT shut off by ~26 bar, manually stop it immediately.",
+]
+
+[cabin.low_pressostat]
+label   = "Low pressostat"
+summary = "Pressure at which the cabin low-pressure safety reports the suction has dropped."
+tools_needed = ["External pressure gauge (low side)"]
+procedure = [
+    "Set CCS8 PWM1 = 20%.",
+    "Mechanically remove the solenoid from the compressor.",
+    "Set OUT2 = 1 (condenser fan).",
+    "Wait for the pressure to drop below approximately 0.5 bar.",
+    "Verify IN5 (low pressure DC OK) goes to 0.",
+    "Read the gauge, then shut everything down.",
+]
+
+# =============================================================================
+# CALCULATED VALUES
+# =============================================================================
+
+[salon_calc.evap_fan_y]
+label = "Evaporator fan Y"
+
+[salon_calc.evap_fan_delta]
+label = "Evaporator fan Δ"
+
+[salon_calc.condenser_fan_y]
+label = "Condenser fan Y"
+
+[salon_calc.condenser_fan_delta]
+label = "Condenser fan Δ"
+
+[salon_calc.compressor_both]
+label = "Compressor both cylinders"
+
+[salon_calc.compressor_one]
+label = "Compressor one cylinder"
+
+[cabin_calc.condenser_fan_3f]
+label = "Condenser fan 3F 100%"
+
+[cabin_calc.compressor]
+label = "Compressor"

@@ -1,0 +1,58 @@
+# Step manifest - shared by the web app (web/js/model.js) and the Python tool
+# (hvac_protocol.py). Order here = order on screen and in the PDF.
+#
+# Labels and instructions do NOT live here: they are in i18n/<lang>.toml under
+# [salon.<id>] / [cabin.<id>].
+#
+# checks         OK / NOK steps
+# measurements   one inline table per measurement:
+#   id      step id
+#   unit    unit of measure shown next to the value
+#   range   [min, max] expected range. Warning only (red field), never blocks,
+#           PDF unaffected. Seeded from observed min/max in HVAC-Faivelery.xlsx
+#           widened by a margin - NOT official Faiveley spec. Adjust as real
+#           limits become known; delete `range` to disable the check.
+#   raw     true = raw clamp-meter reading. The PDF lists it under
+#           "Surová data z měřidel"; calculated values are derived from it.
+#   signed  true = value can be negative (phone keypad gets a ± button)
+
+[salon]
+checks = ["flaps", "valves", "temp_sensors", "exhaust_fans"]
+measurements = [  #                                                                   observed in xlsx
+    { id = "compressor_heater_current", unit = "A",   range = [0.35, 0.65] },             # 0.45..0.53
+    { id = "compressor_temp_start",     unit = "°C",  range = [35.0, 70.0] },             # 42.6..60
+    { id = "evap_fan_y_raw",            unit = "A",   range = [1.2, 2.2],  raw = true },  # 1.48..1.86
+    { id = "evap_fan_delta_raw",        unit = "A",   range = [1.7, 2.8],  raw = true },  # 2.06..2.38
+    { id = "condenser_fan_y_raw",       unit = "A",   range = [1.8, 2.8],  raw = true },  # 2.17..2.35
+    { id = "condenser_fan_delta_raw",   unit = "A",   range = [3.0, 4.8],  raw = true },  # 3.57..4.19
+    { id = "heater_resistance_12",      unit = "Ω",   range = [14.0, 17.5] },             # 15.1..16.2
+    { id = "heater_resistance_23",      unit = "Ω",   range = [14.0, 17.5] },
+    { id = "heater_resistance_31",      unit = "Ω",   range = [14.0, 17.5] },
+    { id = "compressor_both_raw",       unit = "A",   range = [22.0, 35.0], raw = true }, # 25.2..31.7
+    { id = "compressor_one_raw",        unit = "A",   range = [18.0, 31.0], raw = true }, # 21.3..27.9
+    { id = "operating_low_pressure",    unit = "Bar", range = [0.7, 2.8] },               # 0.97..2.16
+    { id = "operating_high_pressure",   unit = "Bar", range = [6.0, 17.0] },              # 8.1..14.3
+    { id = "output_temperature",        unit = "°C",  range = [-5.0, 22.0], signed = true }, # -0.8..17.7
+    { id = "compressor_temp_end",       unit = "°C",  range = [30.0, 65.0] },             # 36..54.7
+    { id = "high_pressostat",           unit = "Bar", range = [20.5, 24.5] },             # 21.7..23.2
+    { id = "low_pressostat",            unit = "Bar", range = [0.2, 0.9] },               # 0.32..0.65
+]
+
+[cabin]
+checks = ["flaps", "valves", "temp_sensors"]
+measurements = [
+    { id = "compressor_heater_current", unit = "A",   range = [0.08, 0.16] },             # 0.111..0.116
+    { id = "compressor_temp_start",     unit = "°C",  range = [20.0, 50.0] },             # 28..36
+    { id = "evap_fan_1f",               unit = "A",   range = [1.8, 3.2] },               # 2.14..2.74
+    { id = "condenser_fan_3f_raw",      unit = "A",   range = [0.5, 1.4],  raw = true },  # ~0.85..1.02
+    { id = "heater_resistance_12",      unit = "Ω",   range = [55.0, 65.0] },             # 58.9..61.1
+    { id = "heater_resistance_23",      unit = "Ω",   range = [55.0, 65.0] },
+    { id = "heater_resistance_31",      unit = "Ω",   range = [55.0, 65.0] },
+    { id = "compressor_raw",            unit = "A",   range = [3.2, 5.2],  raw = true },  # 3.79..4.45
+    { id = "operating_low_pressure",    unit = "Bar", range = [0.9, 3.6] },               # 1.21..2.99
+    { id = "operating_high_pressure",   unit = "Bar", range = [6.5, 15.0] },              # 8.7..12.2
+    { id = "output_temperature",        unit = "°C",  range = [5.0, 20.0], signed = true },  # 11.1..15.3
+    { id = "compressor_temp_end",       unit = "°C",  range = [25.0, 50.0] },             # 32..38
+    { id = "high_pressostat",           unit = "Bar", range = [20.5, 24.5] },             # 21.9..23.5
+    { id = "low_pressostat",            unit = "Bar", range = [0.2, 0.9] },               # 0.35..0.62
+]

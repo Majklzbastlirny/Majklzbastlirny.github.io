@@ -23,6 +23,27 @@ terms, not under MIT.
 Both are MIT like this repository, but they carry their own copyright notices, which must travel
 with them.
 
+## HVAC Protocol Tool — `hvac-protocol/`
+
+This tool vendors its own libraries and PDF font rather than using the shared `assets/`, because
+it came in as a self-contained project. Each ships with its own licence file:
+
+| File | Project | Licence |
+|---|---|---|
+| `vendor/jspdf.umd.min.js` | [jsPDF](https://github.com/parallax/jsPDF) 3.0.4 | MIT — `vendor/jspdf.LICENSE.txt` |
+| `vendor/smol-toml.js` | [smol-toml](https://github.com/squirrelchat/smol-toml) 1.9.0 | **BSD-3-Clause** — `vendor/smol-toml.LICENSE.txt` |
+| `fonts/Carlito-*.ttf` | [Carlito](https://github.com/googlefonts/carlito) | SIL OFL 1.1 — `fonts/OFL.txt` |
+
+Note that smol-toml is BSD-3-Clause, not MIT: it carries a non-endorsement clause the MIT licence
+does not have. Carlito is metric-compatible with Calibri so the generated PDF matches the desktop
+tool's layout; **Calibri itself is not shipped and must not be** — it is a Microsoft font with no
+redistribution right here.
+
+The equipment maker's name appears in the UI subtitle and app description as a plain description
+of what the tool is for. No manufacturer documentation, drawings, specifications or tolerance
+limits are reproduced — the expected ranges in `steps.toml` are the author's own widened working
+values and are explicitly marked in that file as *not* official specification.
+
 ## Webfonts — `assets/fonts/`
 
 Chakra Petch, DM Sans, IBM Plex Mono, IBM Plex Sans and JetBrains Mono, all under the

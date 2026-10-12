@@ -29,6 +29,7 @@ vna-viewer/           NanoVNA Touchstone viewer — VENDORED from an external re
 antenna-pattern/      antenna pattern analyzer (has HANDOFF.md + node test.mjs gate)
 etcs-dmi/             ETCS DMI symbol catalogue — VENDORED, published subset only, see notes
 thread-id/            thread identifier, caliper readings → designation (has node validate.mjs gate)
+hvac-protocol/        HVAC test protocol PWA — VENDORED, web/ subset only, see notes
 *.html at root        redirect stubs (meta refresh + location.replace) from the old flat layout
 ```
 
@@ -313,6 +314,46 @@ to drift out of step — the trap `antenna-pattern`'s `core.mjs` sets.
   scoring tolerance — scoring them loosely let GPI 13 outrank a 1/2-13 bolt.
 - RF rows compute Ø from the inch size so they tie exactly with their generic UN twin; the sort
   then puts the connector name first. SMC is #10-32 UNF.
+
+### hvac-protocol
+**Vendored copy — do not edit here.** Upstream is `../upstream/hvac-protocol/`, which holds the
+whole project: `web/` (the app) and `protocols/` (**real test protocols from Michal's job —
+these must never be published, and are the reason this tool is vendored rather than in-repo**).
+
+Published subset: **the contents of `web/`, nothing else.** `protocols/` stays upstream.
+
+Re-sync procedure:
+1. `cp -r ../upstream/hvac-protocol/web/* hvac-protocol/` — note the `web/*`, not the project root.
+2. Re-add the tools-site chrome — the *only* local modification. In `hvac-protocol/index.html`,
+   a `<style>` block after the `style.css` link and a `<nav class="site-nav">` immediately before
+   `<div id="app">`, carrying the `← Tools` and `· No warranty` links. It is hidden under
+   `@media (display-mode: standalone)` so it does not clutter the installed PWA.
+3. `git diff` to confirm nothing else moved, and `find hvac-protocol -name '*.json' -o -name
+   '*.bak' -o -name '*.pdf'` must come back empty — that is the guard against protocol data
+   leaking into the repo.
+
+**Do not edit `hvac-protocol/CLAUDE.md`.** It is the project's own handoff doc, it is deployed
+with the tool by the author's intent, and editing it here would be a second local modification
+that the next sync silently reverts. Tool-level notes go in *this* file instead.
+
+Things to know:
+- **It is a PWA with a service worker.** `sw.js` holds a `FILES` list and does a byte-compare
+  update check on every launch; a changed file makes installed copies show "new version —
+  reload". So any deploy touching this folder will prompt a reload on Michal's phone — expected,
+  not a bug. **If you add a file to the tool, it must be added to `FILES`** or it will not be
+  cached and the app breaks offline.
+- All paths in `sw.js`, `index.html` and `manifest.webmanifest` are **relative** (`./`), which is
+  what lets the app work from `/hvac-protocol/` rather than a domain root. Do not "fix" any of
+  them to absolute paths.
+- **Second deliberate light-theme tool**, alongside `vna-viewer`: `color-scheme: light` with a
+  `prefers-color-scheme: dark` block, because it is used on a phone in a bright depot. Convention
+  7 is relaxed for exactly these two.
+- **No regression gate**, unlike `sensorcalc`, `antenna-pattern` and `thread-id`. The reference
+  implementation is the Python tool that lives beside the project upstream, and the JSON protocol
+  format is a contract shared with it — read the project's own `CLAUDE.md` before touching
+  `js/model.js` or `js/pdf.js`.
+- `steps.toml` expected ranges are the author's own widened working values and are marked in that
+  file as **not** official manufacturer specification. Do not present them as limits.
 
 ## Git / deploy
 
